@@ -40,6 +40,14 @@ interface CommentRow {
   created_at: string
 }
 
+interface RelatedItem {
+  link_id: string
+  entity_type: string
+  entity_id: string
+  direction: string
+  name: string
+}
+
 interface TaskDetailModalProps {
   taskId: string | null
   onClose: () => void
@@ -64,6 +72,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [task, setTask] = useState<TaskRow | null>(null)
   const [subtasks, setSubtasks] = useState<SubtaskRow[]>([])
   const [comments, setComments] = useState<CommentRow[]>([])
+  const [related, setRelated] = useState<RelatedItem[]>([])
+  const [relatedOpen, setRelatedOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -115,6 +125,35 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       setBucket(t.bucket ?? '')
       setSubtasks((subtasksRes.data ?? []) as SubtaskRow[])
       setComments((commentsRes.data ?? []) as CommentRow[])
+
+      // Load related items via fn_related
+      const { data: rawRelated } = await supabase.rpc('fn_related', {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        p_type: t.type as any,
+        p_id: id,
+      })
+      const relatedRows = (rawRelated ?? []) as Array<{
+        link_id: string; entity_type: string; entity_id: string; direction: string
+      }>
+      if (relatedRows.length > 0) {
+        const nodeIds = relatedRows
+          .filter(r => r.entity_type === 'task' || r.entity_type === 'project')
+          .map(r => r.entity_id)
+        const nameMap: Record<string, string> = {}
+        if (nodeIds.length > 0) {
+          const { data: nameData } = await supabase
+            .from('action_node')
+            .select('id, name')
+            .in('id', nodeIds)
+          ;(nameData ?? []).forEach(n => { nameMap[n.id] = n.name ?? n.id })
+        }
+        setRelated(relatedRows.map(r => ({
+          ...r,
+          name: nameMap[r.entity_id] ?? r.entity_type,
+        })))
+      } else {
+        setRelated([])
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load task')
     } finally {
@@ -333,6 +372,68 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 </div>
               </div>
             )}
+
+            {/* Related Items */}
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => setRelatedOpen(o => !o)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <span style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                  Related Items
+                </span>
+                <span className="flex items-center gap-1.5">
+                  {related.length > 0 && (
+                    <span
+                      style={{ backgroundColor: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                      className="text-[10px] rounded-full px-1.5 py-0.5 font-mono"
+                    >
+                      {related.length}
+                    </span>
+                  )}
+                  <span style={{ color: 'var(--text-muted)' }} className="text-[10px]">
+                    {relatedOpen ? '▼' : '▶'}
+                  </span>
+                </span>
+              </button>
+              {relatedOpen && (
+                <div className="flex flex-col gap-1 mt-1">
+                  {related.length === 0 ? (
+                    <p style={{ color: 'var(--text-muted)' }} className="text-xs py-1">No related items</p>
+                  ) : (
+                    related.map(r => {
+                      const isNode = r.entity_type === 'task' || r.entity_type === 'project'
+                      return (
+                        <button
+                          key={r.link_id}
+                          onClick={() => isNode ? setActiveTaskId(r.entity_id) : undefined}
+                          disabled={!isNode}
+                          style={{
+                            backgroundColor: 'var(--surface2)',
+                            border: '1px solid var(--border)',
+                            cursor: isNode ? 'pointer' : 'default',
+                          }}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-left hover:border-[#8b949e]/40 transition-colors disabled:hover:border-[var(--border)]"
+                        >
+                          <span
+                            style={{ backgroundColor: 'var(--surface)', color: 'var(--accent)', border: '1px solid var(--border)' }}
+                            className="text-[10px] rounded px-1.5 py-0.5 font-medium shrink-0"
+                          >
+                            {r.entity_type}
+                          </span>
+                          <span style={{ color: 'var(--text)' }} className="text-sm flex-1 min-w-0 truncate">
+                            {r.name}
+                          </span>
+                          <span style={{ color: 'var(--text-muted)' }} className="text-[10px] shrink-0">
+                            {r.direction === 'forward' ? 'links to' : 'linked from'}
+                          </span>
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* Comments */}
             <div className="flex flex-col gap-2">
