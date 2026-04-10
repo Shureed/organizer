@@ -212,6 +212,7 @@ export type Database = {
           id: string
           item_id: string | null
           item_type: Database["public"]["Enums"]["item_type"] | null
+          pinned: boolean
           read: boolean
           source: Database["public"]["Enums"]["inbox_source"]
           title: string
@@ -224,6 +225,7 @@ export type Database = {
           id?: string
           item_id?: string | null
           item_type?: Database["public"]["Enums"]["item_type"] | null
+          pinned?: boolean
           read?: boolean
           source?: Database["public"]["Enums"]["inbox_source"]
           title: string
@@ -236,6 +238,7 @@ export type Database = {
           id?: string
           item_id?: string | null
           item_type?: Database["public"]["Enums"]["item_type"] | null
+          pinned?: boolean
           read?: boolean
           source?: Database["public"]["Enums"]["inbox_source"]
           title?: string
@@ -587,6 +590,7 @@ export type Database = {
           id: string | null
           item_id: string | null
           item_type: Database["public"]["Enums"]["item_type"] | null
+          pinned: boolean | null
           read: boolean | null
           source: Database["public"]["Enums"]["inbox_source"] | null
           title: string | null
@@ -599,6 +603,7 @@ export type Database = {
           id?: string | null
           item_id?: string | null
           item_type?: Database["public"]["Enums"]["item_type"] | null
+          pinned?: boolean | null
           read?: boolean | null
           source?: Database["public"]["Enums"]["inbox_source"] | null
           title?: string | null
@@ -611,6 +616,7 @@ export type Database = {
           id?: string | null
           item_id?: string | null
           item_type?: Database["public"]["Enums"]["item_type"] | null
+          pinned?: boolean | null
           read?: boolean | null
           source?: Database["public"]["Enums"]["inbox_source"] | null
           title?: string | null

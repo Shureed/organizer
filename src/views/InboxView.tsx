@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAppStore } from '../store/appState'
 import { useDataLoader } from '../hooks/useDataLoader'
 import { useMutations } from '../hooks/useMutations'
-import { supabase } from '../lib/supabase'
 import { InboxItem } from '../components/inbox/InboxItem'
 import { InboxDetailModal } from '../components/inbox/InboxDetailModal'
 import { Button } from '../components/ui/button'
@@ -13,9 +12,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog'
-import type { Database } from '../types/database.types'
-
-type InboxRow = Database['public']['Tables']['inbox']['Row']
 
 function CheckIcon() {
   return (
@@ -51,59 +47,20 @@ function PlusIcon() {
   )
 }
 
-function ChevronIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
-    >
-      <path d="M9 18l6-6-6-6" />
-    </svg>
-  )
-}
-
 export function InboxView() {
   const inbox = useAppStore((s) => s.data.inbox)
   const { refreshInbox } = useDataLoader()
-  const { addInbox, markRead } = useMutations()
+  const { addInbox } = useMutations()
 
   const [detailId, setDetailId] = useState<string | null>(null)
   const [captureOpen, setCaptureOpen] = useState(false)
   const [captureTitle, setCaptureTitle] = useState('')
   const [captureBody, setCaptureBody] = useState('')
   const [capturing, setCapturing] = useState(false)
-  const [readOpen, setReadOpen] = useState(false)
-  const [archivedOpen, setArchivedOpen] = useState(false)
-  const [archivedItems, setArchivedItems] = useState<InboxRow[]>([])
 
-  // v_new_inbox only returns archived=false, so we fetch archived separately
-  useEffect(() => {
-    supabase
-      .from('inbox')
-      .select('*')
-      .eq('archived', true)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setArchivedItems(data ?? []))
-  }, [])
-
-  // Split non-archived inbox into unread vs read
-  const unread = inbox.filter((i) => !i.read)
-  const readItems = inbox.filter((i) => i.read === true)
-
-  const handleOpenDetail = (id: string) => {
-    setDetailId(id)
-    const item = inbox.find((i) => i.id === id)
-    if (item && !item.read) {
-      markRead(id).catch(() => {})
-    }
-  }
+  // Pinned first, then rest by created_at desc (view already orders this way)
+  const pinned = inbox.filter((i) => i.pinned)
+  const unpinned = inbox.filter((i) => !i.pinned)
 
   const handleCapture = async () => {
     if (!captureTitle.trim()) return
@@ -139,7 +96,7 @@ export function InboxView() {
         <h1 style={{ color: 'var(--text)' }} className="text-base font-semibold leading-none">
           Inbox
         </h1>
-        {unread.length > 0 && (
+        {inbox.length > 0 && (
           <span
             style={{
               backgroundColor: 'var(--accent)',
@@ -147,18 +104,14 @@ export function InboxView() {
             }}
             className="inline-flex items-center justify-center rounded-full w-5 h-5 text-[10px] font-bold leading-none"
           >
-            {unread.length}
+            {inbox.length}
           </span>
         )}
-        <span style={{ color: 'var(--text-muted)' }} className="text-xs ml-auto">
-          {unread.length} unread
-        </span>
       </div>
 
       {/* Content */}
       <div className="flex-1 px-4 pt-4 flex flex-col gap-3">
-        {/* Unread section */}
-        {unread.length === 0 ? (
+        {inbox.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <span style={{ color: 'var(--text-muted)' }}>
               <CheckIcon />
@@ -168,73 +121,41 @@ export function InboxView() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
-            {unread.map((item) => (
-              <InboxItem
-                key={item.id ?? item.created_at}
-                item={item}
-                onOpenDetail={handleOpenDetail}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Read section */}
-        {readItems.length > 0 && (
-          <div
-            style={{ borderTop: '1px solid var(--border)' }}
-            className="pt-3 mt-1"
-          >
-            <button
-              onClick={() => setReadOpen((v) => !v)}
-              style={{ color: 'var(--text-muted)' }}
-              className="flex items-center gap-1.5 text-xs font-medium mb-2 hover:text-[var(--text)] transition-colors"
-            >
-              <ChevronIcon open={readOpen} />
-              Read ({readItems.length})
-            </button>
-
-            {readOpen && (
+          <>
+            {/* Pinned section */}
+            {pinned.length > 0 && (
               <div className="flex flex-col gap-2">
-                {readItems.map((item) => (
+                <p style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide px-0.5">
+                  Pinned
+                </p>
+                {pinned.map((item) => (
                   <InboxItem
                     key={item.id ?? item.created_at}
                     item={item}
-                    onOpenDetail={handleOpenDetail}
+                    onOpenDetail={setDetailId}
                   />
                 ))}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Archived section */}
-        {archivedItems.length > 0 && (
-          <div
-            style={{ borderTop: '1px solid var(--border)' }}
-            className="pt-3 mt-1"
-          >
-            <button
-              onClick={() => setArchivedOpen((v) => !v)}
-              style={{ color: 'var(--text-muted)' }}
-              className="flex items-center gap-1.5 text-xs font-medium mb-2 hover:text-[var(--text)] transition-colors"
-            >
-              <ChevronIcon open={archivedOpen} />
-              Archived ({archivedItems.length})
-            </button>
-
-            {archivedOpen && (
+            {/* Main list */}
+            {unpinned.length > 0 && (
               <div className="flex flex-col gap-2">
-                {archivedItems.map((item) => (
+                {pinned.length > 0 && (
+                  <p style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide px-0.5 mt-1">
+                    Inbox
+                  </p>
+                )}
+                {unpinned.map((item) => (
                   <InboxItem
                     key={item.id ?? item.created_at}
                     item={item}
-                    onOpenDetail={handleOpenDetail}
+                    onOpenDetail={setDetailId}
                   />
                 ))}
               </div>
             )}
-          </div>
+          </>
         )}
       </div>
 

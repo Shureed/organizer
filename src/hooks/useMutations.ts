@@ -71,10 +71,10 @@ export function useMutations() {
     await refreshInbox()
   }
 
-  const markRead = async (id: string) => {
+  const togglePin = async (id: string, pinned: boolean) => {
     const { error } = await supabase
       .from('inbox')
-      .update({ read: true })
+      .update({ pinned })
       .eq('id', id)
 
     if (error) throw error
@@ -120,5 +120,5 @@ export function useMutations() {
     if (error) throw error
   }
 
-  return { changeTaskStatus, archiveInbox, markRead, addTask, addInbox, postComment }
+  return { changeTaskStatus, archiveInbox, togglePin, addTask, addInbox, postComment }
 }

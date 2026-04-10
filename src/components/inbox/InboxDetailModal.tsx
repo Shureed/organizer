@@ -36,7 +36,7 @@ export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [dismissing, setDismissing] = useState(false)
-  const { archiveInbox, postComment, markRead } = useMutations()
+  const { archiveInbox, postComment } = useMutations()
   const { refreshInbox } = useDataLoader()
 
   useEffect(() => {
@@ -53,10 +53,6 @@ export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
         .eq('id', itemId)
         .single()
       setItem(data)
-      // Mark as read when opened (fire-and-forget)
-      if (data && !data.read) {
-        markRead(itemId).catch(() => {})
-      }
     }
 
     const fetchComments = async () => {
