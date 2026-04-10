@@ -1,0 +1,274 @@
+import { useState } from 'react'
+import { useAppStore } from '../store/appState'
+import { useDataLoader } from '../hooks/useDataLoader'
+import { useMutations } from '../hooks/useMutations'
+import { InboxItem } from '../components/inbox/InboxItem'
+import { InboxDetailModal } from '../components/inbox/InboxDetailModal'
+import { Button } from '../components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../components/ui/dialog'
+
+function CheckIcon() {
+  return (
+    <svg
+      width="40"
+      height="40"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  )
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  )
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
+    >
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}
+
+export function InboxView() {
+  const inbox = useAppStore((s) => s.data.inbox)
+  const { refreshInbox } = useDataLoader()
+  const { addInbox } = useMutations()
+
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [captureOpen, setCaptureOpen] = useState(false)
+  const [captureTitle, setCaptureTitle] = useState('')
+  const [captureBody, setCaptureBody] = useState('')
+  const [capturing, setCapturing] = useState(false)
+  const [archivedOpen, setArchivedOpen] = useState(false)
+
+  const unread = inbox.filter((i) => !i.archived)
+  const archived = inbox.filter((i) => i.archived)
+
+  const handleCapture = async () => {
+    if (!captureTitle.trim()) return
+    setCapturing(true)
+    try {
+      await addInbox({
+        title: captureTitle.trim(),
+        body: captureBody.trim() || undefined,
+        source: 'shortcut',
+      })
+      await refreshInbox()
+      setCaptureTitle('')
+      setCaptureBody('')
+      setCaptureOpen(false)
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  return (
+    <div
+      style={{ background: 'var(--bg)', color: 'var(--text)' }}
+      className="min-h-screen flex flex-col pb-20"
+    >
+      {/* Header */}
+      <div
+        style={{
+          background: 'var(--surface)',
+          borderBottom: '1px solid var(--border)',
+        }}
+        className="sticky top-0 z-10 px-4 pt-4 pb-3 flex items-center gap-2"
+      >
+        <h1 style={{ color: 'var(--text)' }} className="text-base font-semibold leading-none">
+          Inbox
+        </h1>
+        {unread.length > 0 && (
+          <span
+            style={{
+              backgroundColor: 'var(--accent)',
+              color: '#000',
+            }}
+            className="inline-flex items-center justify-center rounded-full w-5 h-5 text-[10px] font-bold leading-none"
+          >
+            {unread.length}
+          </span>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 px-4 pt-4 flex flex-col gap-3">
+        {/* Unread section */}
+        {unread.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <span style={{ color: 'var(--text-muted)' }}>
+              <CheckIcon />
+            </span>
+            <p style={{ color: 'var(--text-muted)' }} className="text-sm">
+              Inbox is clear
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {unread.map((item) => (
+              <InboxItem
+                key={item.id ?? item.created_at}
+                item={item}
+                onOpenDetail={setDetailId}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Archived section */}
+        {archived.length > 0 && (
+          <div
+            style={{ borderTop: '1px solid var(--border)' }}
+            className="pt-3 mt-1"
+          >
+            <button
+              onClick={() => setArchivedOpen((v) => !v)}
+              style={{ color: 'var(--text-muted)' }}
+              className="flex items-center gap-1.5 text-xs font-medium mb-2 hover:text-[var(--text)] transition-colors"
+            >
+              <ChevronIcon open={archivedOpen} />
+              Archived ({archived.length})
+            </button>
+
+            {archivedOpen && (
+              <div className="flex flex-col gap-2">
+                {archived.map((item) => (
+                  <InboxItem
+                    key={item.id ?? item.created_at}
+                    item={item}
+                    onOpenDetail={setDetailId}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* FAB */}
+      <button
+        onClick={() => setCaptureOpen(true)}
+        style={{
+          backgroundColor: 'var(--accent)',
+          color: '#000',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+        }}
+        className="fixed bottom-24 right-4 w-12 h-12 rounded-full flex items-center justify-center z-20 active:scale-95 transition-transform"
+        aria-label="Quick capture"
+      >
+        <PlusIcon />
+      </button>
+
+      {/* Quick capture dialog */}
+      <Dialog open={captureOpen} onOpenChange={(open) => { if (!open) setCaptureOpen(false) }}>
+        <DialogContent
+          style={{
+            backgroundColor: 'var(--surface)',
+            border: '1px solid var(--border)',
+            color: 'var(--text)',
+          }}
+          className="max-w-sm w-full"
+        >
+          <DialogHeader>
+            <DialogTitle style={{ color: 'var(--text)' }}>Quick Capture</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-2 mt-1">
+            <input
+              autoFocus
+              value={captureTitle}
+              onChange={(e) => setCaptureTitle(e.target.value)}
+              placeholder="Title"
+              style={{
+                backgroundColor: 'var(--surface2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+              }}
+              className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault()
+                  handleCapture()
+                }
+              }}
+            />
+            <textarea
+              value={captureBody}
+              onChange={(e) => setCaptureBody(e.target.value)}
+              placeholder="Body (optional)"
+              rows={3}
+              style={{
+                backgroundColor: 'var(--surface2)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                resize: 'none',
+              }}
+              className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCaptureOpen(false)}
+              style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCapture}
+              disabled={capturing || !captureTitle.trim()}
+              style={{ backgroundColor: 'var(--accent)', color: '#000' }}
+            >
+              {capturing ? 'Adding…' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detail modal */}
+      <InboxDetailModal
+        itemId={detailId}
+        onClose={() => setDetailId(null)}
+      />
+    </div>
+  )
+}

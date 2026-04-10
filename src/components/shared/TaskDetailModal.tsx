@@ -1,0 +1,403 @@
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { supabase } from '../../lib/supabase'
+import { useMutations } from '../../hooks/useMutations'
+import { useDataLoader } from '../../hooks/useDataLoader'
+import { StatusChip } from './StatusChip'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog'
+import type { Database } from '../../types/database.types'
+
+type ItemStatus = Database['public']['Enums']['item_status']
+type ItemBucket = Database['public']['Enums']['item_bucket']
+type PriorityLevel = Database['public']['Enums']['priority_level']
+
+interface TaskRow {
+  id: string
+  name: string
+  status: ItemStatus | null
+  date: string | null
+  priority: PriorityLevel | null
+  bucket: ItemBucket | null
+  body: string | null
+  parent_id: string | null
+  type: string
+}
+
+interface SubtaskRow {
+  id: string
+  name: string
+  status: ItemStatus | null
+}
+
+interface CommentRow {
+  id: string
+  actor: string
+  body: string
+  created_at: string
+}
+
+interface TaskDetailModalProps {
+  taskId: string | null
+  onClose: () => void
+}
+
+const STATUS_OPTIONS: ItemStatus[] = ['open', 'in_progress', 'waiting', 'done', 'cancelled']
+const PRIORITY_OPTIONS: PriorityLevel[] = ['high', 'medium', 'low']
+const BUCKET_OPTIONS: ItemBucket[] = ['needs_doing', 'someday', 'maybe']
+
+function timeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
+export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
+  const [task, setTask] = useState<TaskRow | null>(null)
+  const [subtasks, setSubtasks] = useState<SubtaskRow[]>([])
+  const [comments, setComments] = useState<CommentRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Form state
+  const [status, setStatus] = useState<ItemStatus>('open')
+  const [date, setDate] = useState('')
+  const [priority, setPriority] = useState('')
+  const [bucket, setBucket] = useState('')
+
+  // Comment state
+  const [commentBody, setCommentBody] = useState('')
+  const [submittingComment, setSubmittingComment] = useState(false)
+
+  // Navigation stack for subtask drill-in
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(taskId)
+
+  const { changeTaskStatus, postComment } = useMutations()
+  const { refreshTasks } = useDataLoader()
+  const commentRef = useRef<HTMLTextAreaElement>(null)
+
+  const fetchTask = useCallback(async (id: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [taskRes, subtasksRes, commentsRes] = await Promise.all([
+        supabase.from('action_node').select('*').eq('id', id).single(),
+        supabase
+          .from('action_node')
+          .select('id, name, status')
+          .eq('parent_id', id)
+          .eq('archived', false)
+          .order('status', { ascending: true })
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('comments')
+          .select('id, actor, body, created_at')
+          .eq('entity_type', 'task')
+          .eq('entity_id', id)
+          .order('created_at', { ascending: true }),
+      ])
+
+      if (taskRes.error) throw taskRes.error
+      const t = taskRes.data as TaskRow
+      setTask(t)
+      setStatus(t.status ?? 'open')
+      setDate(t.date ?? '')
+      setPriority(t.priority ?? '')
+      setBucket(t.bucket ?? '')
+      setSubtasks((subtasksRes.data ?? []) as SubtaskRow[])
+      setComments((commentsRes.data ?? []) as CommentRow[])
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load task')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    setActiveTaskId(taskId)
+  }, [taskId])
+
+  useEffect(() => {
+    if (activeTaskId) {
+      fetchTask(activeTaskId)
+    }
+  }, [activeTaskId, fetchTask])
+
+  const handleUpdate = async () => {
+    if (!activeTaskId) return
+    setSaving(true)
+    try {
+      await changeTaskStatus(
+        activeTaskId,
+        status,
+        (bucket || null) as ItemBucket | null,
+        date || null,
+        (priority || null) as PriorityLevel | null
+      )
+      await refreshTasks()
+      onClose()
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Update failed')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCommentSubmit = async () => {
+    if (!activeTaskId || !commentBody.trim()) return
+    setSubmittingComment(true)
+    try {
+      await postComment({
+        entity_type: 'task',
+        entity_id: activeTaskId,
+        actor: 'shureed',
+        body: commentBody.trim(),
+      })
+      setCommentBody('')
+      // Refresh comments
+      const { data } = await supabase
+        .from('comments')
+        .select('id, actor, body, created_at')
+        .eq('entity_type', 'task')
+        .eq('entity_id', activeTaskId)
+        .order('created_at', { ascending: true })
+      setComments((data ?? []) as CommentRow[])
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to post comment')
+    } finally {
+      setSubmittingComment(false)
+    }
+  }
+
+  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault()
+      handleCommentSubmit()
+    }
+  }
+
+  const isDateSet = !!date
+
+  return (
+    <Dialog open={!!taskId} onOpenChange={(open) => { if (!open) onClose() }}>
+      <DialogContent
+        className="max-w-lg w-full max-h-[85vh] overflow-y-auto"
+        style={{ backgroundColor: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
+      >
+        <DialogHeader>
+          <DialogTitle style={{ color: 'var(--text)' }} className="text-base font-semibold pr-6">
+            {loading ? 'Loading...' : (task?.name ?? 'Task')}
+          </DialogTitle>
+        </DialogHeader>
+
+        {error && (
+          <p style={{ color: 'var(--red)' }} className="text-xs">{error}</p>
+        )}
+
+        {!loading && task && (
+          <div className="flex flex-col gap-4 mt-1">
+            {/* Form fields */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Status */}
+              <div className="flex flex-col gap-1">
+                <label style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                  Status
+                </label>
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as ItemStatus)}
+                  style={{
+                    backgroundColor: 'var(--surface2)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                  }}
+                  className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                >
+                  {STATUS_OPTIONS.map((s) => (
+                    <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Priority */}
+              <div className="flex flex-col gap-1">
+                <label style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                  Priority
+                </label>
+                <select
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--surface2)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                  }}
+                  className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                >
+                  <option value="">— none —</option>
+                  {PRIORITY_OPTIONS.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date */}
+              <div className="flex flex-col gap-1">
+                <label style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  style={{
+                    backgroundColor: 'var(--surface2)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    colorScheme: 'dark',
+                  }}
+                  className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                />
+              </div>
+
+              {/* Bucket */}
+              <div className="flex flex-col gap-1">
+                <label style={{ color: isDateSet ? 'var(--border)' : 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                  Bucket
+                </label>
+                <select
+                  value={bucket}
+                  onChange={(e) => setBucket(e.target.value)}
+                  disabled={isDateSet}
+                  style={{
+                    backgroundColor: 'var(--surface2)',
+                    color: isDateSet ? 'var(--text-muted)' : 'var(--text)',
+                    border: '1px solid var(--border)',
+                    opacity: isDateSet ? 0.5 : 1,
+                  }}
+                  className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed"
+                >
+                  <option value="">— none —</option>
+                  {BUCKET_OPTIONS.map((b) => (
+                    <option key={b} value={b}>{b.replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Update button */}
+            <button
+              onClick={handleUpdate}
+              disabled={saving}
+              style={{
+                backgroundColor: 'var(--accent)',
+                color: '#0d1117',
+              }}
+              className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50 transition-opacity w-full"
+            >
+              {saving ? 'Saving...' : 'Update'}
+            </button>
+
+            {/* Subtasks */}
+            {subtasks.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                  Subtasks ({subtasks.length})
+                </p>
+                <div className="flex flex-col gap-1">
+                  {subtasks.map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => setActiveTaskId(sub.id)}
+                      style={{
+                        backgroundColor: 'var(--surface2)',
+                        border: '1px solid var(--border)',
+                      }}
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-left hover:border-[#8b949e]/40 transition-colors"
+                    >
+                      <StatusChip status={sub.status} />
+                      <span style={{ color: 'var(--text)' }} className="text-sm flex-1 min-w-0 truncate">
+                        {sub.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Comments */}
+            <div className="flex flex-col gap-2">
+              <p style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                Comments
+              </p>
+
+              {comments.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  {comments.map((c) => (
+                    <div key={c.id} className="flex items-start gap-2">
+                      <div
+                        style={{
+                          backgroundColor: c.actor === 'shureed' ? 'var(--surface2)' : 'rgba(88,166,255,0.15)',
+                          color: c.actor === 'shureed' ? 'var(--text-muted)' : 'var(--accent)',
+                          border: '1px solid var(--border)',
+                          flexShrink: 0,
+                        }}
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                        title={c.actor}
+                      >
+                        {c.actor === 'shureed' ? 'S' : '✦'}
+                      </div>
+                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                        <p style={{ color: 'var(--text)' }} className="text-sm leading-snug whitespace-pre-wrap break-words">
+                          {c.body}
+                        </p>
+                        <p style={{ color: 'var(--text-muted)' }} className="text-[10px]">
+                          {timeAgo(c.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1">
+                <textarea
+                  ref={commentRef}
+                  value={commentBody}
+                  onChange={(e) => setCommentBody(e.target.value)}
+                  onKeyDown={handleCommentKeyDown}
+                  placeholder="Add a comment... (Cmd+Enter to submit)"
+                  rows={3}
+                  style={{
+                    backgroundColor: 'var(--surface2)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--border)',
+                    resize: 'none',
+                  }}
+                  className="rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)] w-full"
+                />
+                <button
+                  onClick={handleCommentSubmit}
+                  disabled={submittingComment || !commentBody.trim()}
+                  style={{ color: 'var(--accent)' }}
+                  className="text-xs self-end disabled:opacity-40 transition-opacity"
+                >
+                  {submittingComment ? 'Posting...' : 'Post comment'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
