@@ -165,10 +165,8 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
           ...r,
           name: nameMap[r.entity_id] ?? r.entity_type,
         })))
-        setRelatedOpen(true)
       } else {
         setRelated([])
-        setRelatedOpen(false)
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load task')
