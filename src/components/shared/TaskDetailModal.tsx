@@ -46,6 +46,7 @@ interface RelatedItem {
   entity_id: string
   direction: string
   name: string
+  display_type: string
 }
 
 interface TaskDetailModalProps {
@@ -150,20 +151,23 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
         link_id: string; entity_type: string; entity_id: string; direction: string
       }>
       if (relatedRows.length > 0) {
-        const nodeIds = relatedRows
-          .filter(r => r.entity_type === 'task' || r.entity_type === 'project')
-          .map(r => r.entity_id)
+        // All action_node items (tasks, projects, bugs, etc.) are stored as entity_type='task'
+        // Fetch actual name + type from action_node for all of them
+        const nodeIds = relatedRows.map(r => r.entity_id)
         const nameMap: Record<string, string> = {}
-        if (nodeIds.length > 0) {
-          const { data: nameData } = await supabase
-            .from('action_node')
-            .select('id, name')
-            .in('id', nodeIds)
-          ;(nameData ?? []).forEach(n => { nameMap[n.id] = n.name ?? n.id })
-        }
+        const typeMap: Record<string, string> = {}
+        const { data: nameData } = await supabase
+          .from('action_node')
+          .select('id, name, type')
+          .in('id', nodeIds)
+        ;(nameData ?? []).forEach(n => {
+          nameMap[n.id] = n.name ?? n.id
+          typeMap[n.id] = n.type ?? 'task'
+        })
         setRelated(relatedRows.map(r => ({
           ...r,
           name: nameMap[r.entity_id] ?? r.entity_type,
+          display_type: typeMap[r.entity_id] ?? r.entity_type,
         })))
       } else {
         setRelated([])
@@ -250,6 +254,16 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
           <DialogTitle style={{ color: 'var(--text)' }} className="text-base font-semibold pr-6">
             {loading ? 'Loading...' : (task?.name ?? 'Task')}
           </DialogTitle>
+          {!loading && task && (
+            <div className="flex items-center gap-2 mt-1">
+              <span
+                style={{ backgroundColor: 'var(--surface2)', color: 'var(--accent)', border: '1px solid var(--border)' }}
+                className="text-[10px] rounded px-1.5 py-0.5 font-medium"
+              >
+                {task.type}
+              </span>
+            </div>
+          )}
         </DialogHeader>
 
         {error && (
@@ -453,7 +467,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                             style={{ backgroundColor: 'var(--surface)', color: 'var(--accent)', border: '1px solid var(--border)' }}
                             className="text-[10px] rounded px-1.5 py-0.5 font-medium shrink-0"
                           >
-                            {r.entity_type}
+                            {r.display_type}
                           </span>
                           <span style={{ color: 'var(--text)' }} className="text-sm flex-1 min-w-0 truncate">
                             {r.name}
