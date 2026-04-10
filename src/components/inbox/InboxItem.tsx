@@ -54,10 +54,17 @@ export function InboxItem({ item, onOpenDetail }: InboxItemProps) {
       className="rounded-xl p-3 flex flex-col gap-2 transition-colors hover:border-[#8b949e]/40 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
     >
       <div className="flex items-start gap-2">
+        {/* Unread dot */}
+        {!item.read && !item.archived && (
+          <span
+            style={{ backgroundColor: 'var(--accent)', flexShrink: 0 }}
+            className="w-1.5 h-1.5 rounded-full mt-1.5"
+          />
+        )}
         <div className="flex-1 min-w-0">
           <p
             style={{ color: item.archived ? 'var(--text-muted)' : 'var(--text)' }}
-            className="text-sm font-semibold leading-snug truncate"
+            className={`text-sm leading-snug truncate ${!item.read && !item.archived ? 'font-semibold' : 'font-normal'}`}
           >
             {title}
           </p>

@@ -71,6 +71,16 @@ export function useMutations() {
     await refreshInbox()
   }
 
+  const markRead = async (id: string) => {
+    const { error } = await supabase
+      .from('inbox')
+      .update({ read: true })
+      .eq('id', id)
+
+    if (error) throw error
+    await refreshInbox()
+  }
+
   const addTask = async (task: AddTaskInput) => {
     const { error } = await supabase.from('action_node').insert({
       name: task.name,
@@ -110,5 +120,5 @@ export function useMutations() {
     if (error) throw error
   }
 
-  return { changeTaskStatus, archiveInbox, addTask, addInbox, postComment }
+  return { changeTaskStatus, archiveInbox, markRead, addTask, addInbox, postComment }
 }

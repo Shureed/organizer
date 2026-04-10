@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/appState'
 import { useDataLoader } from '../hooks/useDataLoader'
 import { useMutations } from '../hooks/useMutations'
+import { supabase } from '../lib/supabase'
 import { InboxItem } from '../components/inbox/InboxItem'
 import { InboxDetailModal } from '../components/inbox/InboxDetailModal'
 import { Button } from '../components/ui/button'
@@ -12,6 +13,9 @@ import {
   DialogTitle,
   DialogFooter,
 } from '../components/ui/dialog'
+import type { Database } from '../types/database.types'
+
+type InboxRow = Database['public']['Tables']['inbox']['Row']
 
 function CheckIcon() {
   return (
@@ -68,17 +72,38 @@ function ChevronIcon({ open }: { open: boolean }) {
 export function InboxView() {
   const inbox = useAppStore((s) => s.data.inbox)
   const { refreshInbox } = useDataLoader()
-  const { addInbox } = useMutations()
+  const { addInbox, markRead } = useMutations()
 
   const [detailId, setDetailId] = useState<string | null>(null)
   const [captureOpen, setCaptureOpen] = useState(false)
   const [captureTitle, setCaptureTitle] = useState('')
   const [captureBody, setCaptureBody] = useState('')
   const [capturing, setCapturing] = useState(false)
+  const [readOpen, setReadOpen] = useState(false)
   const [archivedOpen, setArchivedOpen] = useState(false)
+  const [archivedItems, setArchivedItems] = useState<InboxRow[]>([])
 
-  const unread = inbox.filter((i) => !i.archived)
-  const archived = inbox.filter((i) => i.archived)
+  // v_new_inbox only returns archived=false, so we fetch archived separately
+  useEffect(() => {
+    supabase
+      .from('inbox')
+      .select('*')
+      .eq('archived', true)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => setArchivedItems(data ?? []))
+  }, [])
+
+  // Split non-archived inbox into unread vs read
+  const unread = inbox.filter((i) => !i.read)
+  const readItems = inbox.filter((i) => i.read === true)
+
+  const handleOpenDetail = (id: string) => {
+    setDetailId(id)
+    const item = inbox.find((i) => i.id === id)
+    if (item && !item.read) {
+      markRead(id).catch(() => {})
+    }
+  }
 
   const handleCapture = async () => {
     if (!captureTitle.trim()) return
@@ -125,6 +150,9 @@ export function InboxView() {
             {unread.length}
           </span>
         )}
+        <span style={{ color: 'var(--text-muted)' }} className="text-xs ml-auto">
+          {unread.length} unread
+        </span>
       </div>
 
       {/* Content */}
@@ -145,14 +173,43 @@ export function InboxView() {
               <InboxItem
                 key={item.id ?? item.created_at}
                 item={item}
-                onOpenDetail={setDetailId}
+                onOpenDetail={handleOpenDetail}
               />
             ))}
           </div>
         )}
 
+        {/* Read section */}
+        {readItems.length > 0 && (
+          <div
+            style={{ borderTop: '1px solid var(--border)' }}
+            className="pt-3 mt-1"
+          >
+            <button
+              onClick={() => setReadOpen((v) => !v)}
+              style={{ color: 'var(--text-muted)' }}
+              className="flex items-center gap-1.5 text-xs font-medium mb-2 hover:text-[var(--text)] transition-colors"
+            >
+              <ChevronIcon open={readOpen} />
+              Read ({readItems.length})
+            </button>
+
+            {readOpen && (
+              <div className="flex flex-col gap-2">
+                {readItems.map((item) => (
+                  <InboxItem
+                    key={item.id ?? item.created_at}
+                    item={item}
+                    onOpenDetail={handleOpenDetail}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Archived section */}
-        {archived.length > 0 && (
+        {archivedItems.length > 0 && (
           <div
             style={{ borderTop: '1px solid var(--border)' }}
             className="pt-3 mt-1"
@@ -163,16 +220,16 @@ export function InboxView() {
               className="flex items-center gap-1.5 text-xs font-medium mb-2 hover:text-[var(--text)] transition-colors"
             >
               <ChevronIcon open={archivedOpen} />
-              Archived ({archived.length})
+              Archived ({archivedItems.length})
             </button>
 
             {archivedOpen && (
               <div className="flex flex-col gap-2">
-                {archived.map((item) => (
+                {archivedItems.map((item) => (
                   <InboxItem
                     key={item.id ?? item.created_at}
                     item={item}
-                    onOpenDetail={setDetailId}
+                    onOpenDetail={handleOpenDetail}
                   />
                 ))}
               </div>
