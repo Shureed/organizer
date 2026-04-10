@@ -127,9 +127,9 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       setComments((commentsRes.data ?? []) as CommentRow[])
 
       // Load related items via fn_related
+      // All action_node items are stored as item_type 'task' in related_items
       const { data: rawRelated } = await supabase.rpc('fn_related', {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        p_type: t.type as any,
+        p_type: 'task' as any,
         p_id: id,
       })
       const relatedRows = (rawRelated ?? []) as Array<{
