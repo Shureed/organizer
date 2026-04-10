@@ -164,6 +164,18 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
           nameMap[n.id] = n.name ?? n.id
           typeMap[n.id] = n.type ?? 'task'
         })
+        // Inbox items live in the inbox table, not action_node — fetch their titles separately
+        const inboxIds = relatedRows.filter(r => r.entity_type === 'inbox').map(r => r.entity_id)
+        if (inboxIds.length > 0) {
+          const { data: inboxData } = await supabase
+            .from('inbox')
+            .select('id, title, body')
+            .in('id', inboxIds)
+          ;(inboxData ?? []).forEach(i => {
+            nameMap[i.id] = i.title || (i.body?.slice(0, 50) ?? i.id)
+            typeMap[i.id] = 'inbox'
+          })
+        }
         setRelated(relatedRows.map(r => ({
           ...r,
           name: nameMap[r.entity_id] ?? r.entity_type,
