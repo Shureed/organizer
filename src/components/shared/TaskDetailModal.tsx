@@ -406,6 +406,19 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               {saving ? 'Saving...' : 'Update'}
             </button>
 
+            {/* Body */}
+            {task.body && (
+              <div className="flex flex-col gap-1">
+                <p style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                  Description
+                </p>
+                <p style={{ color: 'var(--text)', backgroundColor: 'var(--surface2)', border: '1px solid var(--border)' }}
+                  className="text-sm leading-relaxed whitespace-pre-wrap break-words rounded-lg px-3 py-2">
+                  {task.body}
+                </p>
+              </div>
+            )}
+
             {/* Subtasks */}
             {subtasks.length > 0 && (
               <div className="flex flex-col gap-2">
