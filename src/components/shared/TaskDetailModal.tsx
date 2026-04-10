@@ -74,6 +74,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [comments, setComments] = useState<CommentRow[]>([])
   const [related, setRelated] = useState<RelatedItem[]>([])
   const [relatedOpen, setRelatedOpen] = useState(false)
+  const [parentNode, setParentNode] = useState<{ id: string; name: string; type: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -126,12 +127,25 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       setSubtasks((subtasksRes.data ?? []) as SubtaskRow[])
       setComments((commentsRes.data ?? []) as CommentRow[])
 
+      // Load parent node
+      if (t.parent_id) {
+        const { data: parentData } = await supabase
+          .from('action_node')
+          .select('id, name, type')
+          .eq('id', t.parent_id)
+          .single()
+        setParentNode(parentData ? { id: parentData.id, name: parentData.name ?? '', type: parentData.type ?? '' } : null)
+      } else {
+        setParentNode(null)
+      }
+
       // Load related items via fn_related
       // All action_node items are stored as item_type 'task' in related_items
-      const { data: rawRelated } = await supabase.rpc('fn_related', {
+      const { data: rawRelated, error: relatedErr } = await supabase.rpc('fn_related', {
         p_type: 'task' as any,
         p_id: id,
       })
+      if (relatedErr) console.error('fn_related error:', relatedErr)
       const relatedRows = (rawRelated ?? []) as Array<{
         link_id: string; entity_type: string; entity_id: string; direction: string
       }>
@@ -151,8 +165,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
           ...r,
           name: nameMap[r.entity_id] ?? r.entity_type,
         })))
+        setRelatedOpen(true)
       } else {
         setRelated([])
+        setRelatedOpen(false)
       }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load task')
@@ -244,6 +260,26 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
         {!loading && task && (
           <div className="flex flex-col gap-4 mt-1">
+            {/* Parent node link */}
+            {parentNode && (
+              <div className="flex items-center gap-2">
+                <span style={{ color: 'var(--text-muted)' }} className="text-xs">
+                  {parentNode.type === 'project' ? '↑ Project' : '↑ Parent'}
+                </span>
+                <button
+                  onClick={() => setActiveTaskId(parentNode.id)}
+                  style={{
+                    backgroundColor: 'var(--surface2)',
+                    color: 'var(--accent)',
+                    border: '1px solid var(--border)',
+                  }}
+                  className="text-xs rounded-full px-2.5 py-0.5 hover:brightness-110 transition-all"
+                >
+                  {parentNode.name}
+                </button>
+              </div>
+            )}
+
             {/* Form fields */}
             <div className="grid grid-cols-2 gap-3">
               {/* Status */}
