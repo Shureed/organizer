@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react'
 import {
   Home,
   CalendarDays,
-  Sparkles,
   Clock,
   AlertCircle,
   Inbox,
@@ -16,18 +15,16 @@ import { buildSearchIndex, useSearch } from './hooks/useSearch'
 import { LoginPage } from './components/LoginPage'
 import { TodayView } from './views/TodayView'
 import { CalendarView } from './views/CalendarView'
-import { InsightsView } from './views/InsightsView'
 import { RecentsView } from './views/RecentsView'
 import { IssuesView } from './views/IssuesView'
 import { InboxView } from './views/InboxView'
 import './App.css'
 
-type View = 'today' | 'calendar' | 'insights' | 'recents' | 'issues' | 'inbox'
+type View = 'today' | 'calendar' | 'recents' | 'issues' | 'inbox'
 
 const TABS: { id: View; label: string; Icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }[] = [
   { id: 'today', label: 'Today', Icon: Home },
   { id: 'calendar', label: 'Calendar', Icon: CalendarDays },
-  { id: 'insights', label: 'Insights', Icon: Sparkles },
   { id: 'recents', label: 'Recents', Icon: Clock },
   { id: 'issues', label: 'Issues', Icon: AlertCircle },
   { id: 'inbox', label: 'Inbox', Icon: Inbox },
@@ -184,7 +181,6 @@ function MainApp() {
       <main className="flex-1 overflow-y-auto" style={{ paddingBottom: '64px' }}>
         {currentView === 'today' && <TodayView />}
         {currentView === 'calendar' && <CalendarView />}
-        {currentView === 'insights' && <InsightsView />}
         {currentView === 'recents' && <RecentsView />}
         {currentView === 'issues' && <IssuesView />}
         {currentView === 'inbox' && <InboxView />}

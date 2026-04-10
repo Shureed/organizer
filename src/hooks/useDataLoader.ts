@@ -50,7 +50,6 @@ export function useDataLoader() {
       activityLogRes,
       completedTodayRes,
       recentItemsRes,
-      insightsRes,
     ] = await Promise.all([
       supabase
         .from('v_active_tasks')
@@ -111,12 +110,6 @@ export function useDataLoader() {
         .order('updated_at', { ascending: false })
         .limit(25),
 
-      supabase
-        .from('insights')
-        .select('*')
-        .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
-        .order('priority', { ascending: true })
-        .order('generated_at', { ascending: false }),
     ])
 
     setData({
@@ -130,7 +123,6 @@ export function useDataLoader() {
       activityLog: activityLogRes.data ?? [],
       completedToday: completedTodayRes.data ?? [],
       recentItems: recentItemsRes.data ?? [],
-      insights: insightsRes.data ?? [],
     })
   }
 

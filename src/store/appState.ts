@@ -9,7 +9,6 @@ export type Space = Tables<'spaces'>
 export type SpaceTree = Tables<'v_space_tree'>
 export type InboxItem = Tables<'v_new_inbox'>
 export type ActivityLogItem = Tables<'v_today_activity'>
-export type Insight = Tables<'insights'>
 export type ActionNode = Tables<'action_node'>
 
 export interface SearchItem {
@@ -33,11 +32,10 @@ export interface AppData {
   activityLog: ActivityLogItem[]
   completedToday: ActionNode[]
   recentItems: Pick<ActionNode, 'id' | 'name' | 'status' | 'updated_at' | 'type' | 'priority'>[]
-  insights: Insight[]
 }
 
 export interface AppUI {
-  currentView: 'today' | 'calendar' | 'insights' | 'recents' | 'issues' | 'inbox'
+  currentView: 'today' | 'calendar' | 'recents' | 'issues' | 'inbox'
   calendarYear: number
   calendarMonth: number
   calendarSelectedDay: string | null
@@ -69,7 +67,6 @@ const initialData: AppData = {
   activityLog: [],
   completedToday: [],
   recentItems: [],
-  insights: [],
 }
 
 const initialUI: AppUI = {
