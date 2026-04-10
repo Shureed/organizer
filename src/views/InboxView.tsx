@@ -30,6 +30,24 @@ function CheckIcon() {
   )
 }
 
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}
+    >
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}
+
 function PlusIcon() {
   return (
     <svg
@@ -53,6 +71,7 @@ export function InboxView() {
   const { addInbox } = useMutations()
 
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [inboxOpen, setInboxOpen] = useState(true)
   const [captureOpen, setCaptureOpen] = useState(false)
   const [captureTitle, setCaptureTitle] = useState('')
   const [captureBody, setCaptureBody] = useState('')
@@ -142,11 +161,16 @@ export function InboxView() {
             {unpinned.length > 0 && (
               <div className="flex flex-col gap-2">
                 {pinned.length > 0 && (
-                  <p style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide px-0.5 mt-1">
-                    Inbox
-                  </p>
+                  <button
+                    onClick={() => setInboxOpen((v) => !v)}
+                    style={{ color: 'var(--text-muted)' }}
+                    className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide px-0.5 mt-1 hover:text-[var(--text)] transition-colors"
+                  >
+                    <ChevronIcon open={inboxOpen} />
+                    Inbox ({unpinned.length})
+                  </button>
                 )}
-                {unpinned.map((item) => (
+                {(pinned.length === 0 || inboxOpen) && unpinned.map((item) => (
                   <InboxItem
                     key={item.id ?? item.created_at}
                     item={item}

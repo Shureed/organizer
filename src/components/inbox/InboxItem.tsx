@@ -22,8 +22,8 @@ function timeAgo(iso: string): string {
 function PinIcon({ filled }: { filled: boolean }) {
   return (
     <svg
-      width="13"
-      height="13"
+      width="15"
+      height="15"
       viewBox="0 0 24 24"
       fill={filled ? 'currentColor' : 'none'}
       stroke="currentColor"
@@ -81,7 +81,22 @@ export function InboxItem({ item, onOpenDetail }: InboxItemProps) {
       }}
       className="rounded-xl p-3 flex flex-col gap-2 transition-colors hover:border-[#8b949e]/40 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/30"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-2.5">
+        {/* Pin button — left side */}
+        <button
+          onClick={handlePin}
+          disabled={pinning}
+          style={{
+            color: item.pinned ? 'var(--accent)' : 'var(--text-muted)',
+            flexShrink: 0,
+            marginTop: '1px',
+          }}
+          className="hover:text-[var(--accent)] transition-colors disabled:opacity-50"
+          aria-label={item.pinned ? 'Unpin' : 'Pin'}
+        >
+          <PinIcon filled={!!item.pinned} />
+        </button>
+
         <div className="flex-1 min-w-0">
           <p
             style={{ color: 'var(--text)' }}
@@ -90,19 +105,6 @@ export function InboxItem({ item, onOpenDetail }: InboxItemProps) {
             {title}
           </p>
         </div>
-
-        {/* Pin button */}
-        <button
-          onClick={handlePin}
-          disabled={pinning}
-          style={{
-            color: item.pinned ? 'var(--accent)' : 'var(--text-muted)',
-          }}
-          className="flex-shrink-0 p-0.5 hover:text-[var(--accent)] transition-colors disabled:opacity-50"
-          aria-label={item.pinned ? 'Unpin' : 'Pin'}
-        >
-          <PinIcon filled={!!item.pinned} />
-        </button>
 
         {/* Dismiss button */}
         <button
