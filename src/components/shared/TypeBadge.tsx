@@ -3,6 +3,8 @@ interface TypeBadgeProps {
 }
 
 const TYPE_LABELS: Record<string, string> = {
+  task: 'task',
+  project: 'project',
   bug: 'bug',
   improvement: 'improvement',
   feature: 'feature',
@@ -13,7 +15,7 @@ const TYPE_LABELS: Record<string, string> = {
 }
 
 export function TypeBadge({ type }: TypeBadgeProps) {
-  if (!type || type === 'task' || type === 'project') return null
+  if (!type) return null
   const label = TYPE_LABELS[type]
   if (!label) return null
 
