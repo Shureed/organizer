@@ -15,7 +15,7 @@ interface CommentSectionProps {
   onChange: (text: string) => void
   onSubmit: () => void
   submitting: boolean
-  bottomRef?: React.RefObject<HTMLDivElement>
+  bottomRef?: React.RefObject<HTMLDivElement | null>
 }
 
 function timeAgo(iso: string): string {

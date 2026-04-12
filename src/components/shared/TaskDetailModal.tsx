@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
-import { Button } from '../ui/button'
 import { CommentSection } from './CommentSection'
 import type { CommentRow } from './CommentSection'
 import type { Database } from '../../types/database.types'
