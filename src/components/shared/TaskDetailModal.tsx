@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useMutations } from '../../hooks/useMutations'
 import { useDataLoader } from '../../hooks/useDataLoader'
 import { StatusChip } from './StatusChip'
+import { PinIcon } from './PinIcon'
 import {
   Dialog,
   DialogContent,
@@ -79,6 +80,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [parentNode, setParentNode] = useState<{ id: string; name: string; type: string } | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [pinning, setPinning] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Form state
@@ -277,19 +279,22 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               </span>
               <button
                 onClick={async () => {
-                  if (!activeTaskId) return
-                  await toggleTaskPin(activeTaskId, !task.pinned)
-                  await fetchTask(activeTaskId)
+                  if (!activeTaskId || pinning) return
+                  setPinning(true)
+                  try {
+                    await toggleTaskPin(activeTaskId, !task.pinned)
+                    await fetchTask(activeTaskId)
+                  } finally {
+                    setPinning(false)
+                  }
                 }}
-                style={{
-                  backgroundColor: task.pinned ? 'var(--accent)' : 'var(--surface2)',
-                  color: task.pinned ? '#0d1117' : 'var(--text-muted)',
-                  border: '1px solid var(--border)',
-                }}
-                className="text-[10px] rounded px-1.5 py-0.5 font-medium hover:opacity-80 transition-opacity"
+                disabled={pinning}
+                style={{ color: task.pinned ? 'var(--accent)' : 'var(--text-muted)' }}
+                className="hover:text-[var(--accent)] transition-colors disabled:opacity-50"
+                aria-label={task.pinned ? 'Unpin from today' : 'Pin to today'}
                 title={task.pinned ? 'Unpin from today' : 'Pin to today'}
               >
-                {task.pinned ? '📌 Pinned' : '📌 Pin to today'}
+                <PinIcon filled={task.pinned} />
               </button>
             </div>
           )}

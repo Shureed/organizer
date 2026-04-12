@@ -3,6 +3,7 @@ import type { InboxItem as InboxItemType } from '../../store/appState'
 import { useMutations } from '../../hooks/useMutations'
 import { useDataLoader } from '../../hooks/useDataLoader'
 import { SourceBadge } from './SourceBadge'
+import { PinIcon } from '../shared/PinIcon'
 
 interface InboxItemProps {
   item: InboxItemType
@@ -17,23 +18,6 @@ function timeAgo(iso: string): string {
   if (diffH < 24) return `${diffH}h ago`
   const diffD = Math.floor(diffH / 24)
   return `${diffD}d ago`
-}
-
-function PinIcon({ filled }: { filled: boolean }) {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
-    </svg>
-  )
 }
 
 export function InboxItem({ item, onOpenDetail }: InboxItemProps) {

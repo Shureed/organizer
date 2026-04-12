@@ -357,8 +357,6 @@ export function TodayView() {
     return true
   })
 
-  const { toggleTaskPin } = useMutations()
-
   const handleTaskClick = (id: string | null) => {
     if (id) setSelectedTaskId(id)
   }
@@ -435,7 +433,6 @@ export function TodayView() {
               task={task}
               showProject={true}
               onClick={() => handleTaskClick(task.id)}
-              onPin={(pinned) => task.id && toggleTaskPin(task.id, pinned)}
             />
           ))}
         </CollapsibleSection>
@@ -456,7 +453,6 @@ export function TodayView() {
               showDate={true}
               showProject={true}
               onClick={() => handleTaskClick(task.id)}
-              onPin={(pinned) => task.id && toggleTaskPin(task.id, pinned)}
             />
           ))}
         </CollapsibleSection>
@@ -479,7 +475,6 @@ export function TodayView() {
               task={task}
               showProject={true}
               onClick={() => handleTaskClick(task.id)}
-              onPin={(pinned) => task.id && toggleTaskPin(task.id, pinned)}
             />
           ))
         )}
