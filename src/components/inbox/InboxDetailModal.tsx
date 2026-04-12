@@ -107,7 +107,7 @@ export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
   return (
     <Dialog open={!!itemId} onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent
-        className="max-w-lg w-full"
+        className="max-w-lg w-full max-h-[85vh] overflow-y-auto"
         style={{
           backgroundColor: 'var(--surface)',
           border: '1px solid var(--border)',
