@@ -30,6 +30,17 @@ function formatDateTime(iso: string): string {
   })
 }
 
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
 export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
   const [item, setItem] = useState<InboxRow | null>(null)
   const [comments, setComments] = useState<CommentRow[]>([])
@@ -180,16 +191,27 @@ export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
               ) : (
                 <div className="flex flex-col gap-2 mb-3">
                   {comments.map((c) => (
-                    <div key={c.id} className="flex flex-col gap-0.5">
-                      <span
-                        style={{ color: 'var(--text-muted)' }}
-                        className="text-[10px] font-medium uppercase tracking-wide"
+                    <div key={c.id} className="flex items-start gap-2">
+                      <div
+                        style={{
+                          backgroundColor: c.actor === 'shureed' ? 'var(--surface2)' : 'rgba(88,166,255,0.15)',
+                          color: c.actor === 'shureed' ? 'var(--text-muted)' : 'var(--accent)',
+                          border: '1px solid var(--border)',
+                          flexShrink: 0,
+                        }}
+                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                        title={c.actor}
                       >
-                        {c.actor}
-                      </span>
-                      <p style={{ color: 'var(--text)' }} className="text-sm leading-snug">
-                        {c.body}
-                      </p>
+                        {c.actor === 'shureed' ? 'S' : '✦'}
+                      </div>
+                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+                        <p style={{ color: 'var(--text)' }} className="text-sm leading-snug whitespace-pre-wrap break-words">
+                          {c.body}
+                        </p>
+                        <p style={{ color: 'var(--text-muted)' }} className="text-[10px]">
+                          {timeAgo(c.created_at ?? '')}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
+import { Button } from '../ui/button'
 import type { Database } from '../../types/database.types'
 
 type ItemStatus = Database['public']['Enums']['item_status']
@@ -40,6 +41,7 @@ interface CommentRow {
   actor: string
   body: string
   created_at: string
+  pending?: boolean
 }
 
 interface RelatedItem {
@@ -99,6 +101,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const { changeTaskStatus, postComment, toggleTaskPin } = useMutations()
   const { refreshTasks } = useDataLoader()
   const commentRef = useRef<HTMLTextAreaElement>(null)
+  const commentsBottomRef = useRef<HTMLDivElement>(null)
 
   const fetchTask = useCallback(async (id: string) => {
     setLoading(true)
@@ -226,16 +229,24 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
   const handleCommentSubmit = async () => {
     if (!activeTaskId || !commentBody.trim()) return
+    const body = commentBody.trim()
+    const optimistic: CommentRow = {
+      id: 'pending',
+      actor: 'shureed',
+      body,
+      created_at: new Date().toISOString(),
+      pending: true,
+    }
+    setComments(prev => [...prev, optimistic])
+    setCommentBody('')
     setSubmittingComment(true)
     try {
       await postComment({
         entity_type: 'task',
         entity_id: activeTaskId,
         actor: 'shureed',
-        body: commentBody.trim(),
+        body,
       })
-      setCommentBody('')
-      // Refresh comments
       const { data } = await supabase
         .from('comments')
         .select('id, actor, body, created_at')
@@ -243,7 +254,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
         .eq('entity_id', activeTaskId)
         .order('created_at', { ascending: true })
       setComments((data ?? []) as CommentRow[])
+      commentsBottomRef.current?.scrollIntoView()
     } catch (e: unknown) {
+      setComments(prev => prev.filter(c => c.id !== 'pending'))
+      setCommentBody(body)
       setError(e instanceof Error ? e.message : 'Failed to post comment')
     } finally {
       setSubmittingComment(false)
@@ -539,7 +553,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               {comments.length > 0 && (
                 <div className="flex flex-col gap-2">
                   {comments.map((c) => (
-                    <div key={c.id} className="flex items-start gap-2">
+                    <div key={c.id} className={`flex items-start gap-2${c.pending ? ' opacity-50' : ''}`}>
                       <div
                         style={{
                           backgroundColor: c.actor === 'shureed' ? 'var(--surface2)' : 'rgba(88,166,255,0.15)',
@@ -557,7 +571,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                           {c.body}
                         </p>
                         <p style={{ color: 'var(--text-muted)' }} className="text-[10px]">
-                          {timeAgo(c.created_at)}
+                          {c.pending ? 'Posting…' : timeAgo(c.created_at)}
                         </p>
                       </div>
                     </div>
@@ -565,14 +579,16 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 </div>
               )}
 
+              <div ref={commentsBottomRef} />
+
               <div className="flex flex-col gap-1">
                 <textarea
                   ref={commentRef}
                   value={commentBody}
                   onChange={(e) => setCommentBody(e.target.value)}
                   onKeyDown={handleCommentKeyDown}
-                  placeholder="Add a comment... (Cmd+Enter to submit)"
-                  rows={3}
+                  placeholder="Add a comment… (Cmd+Enter to submit)"
+                  rows={2}
                   style={{
                     backgroundColor: 'var(--surface2)',
                     color: 'var(--text)',
@@ -581,14 +597,17 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   }}
                   className="rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)] w-full"
                 />
-                <button
-                  onClick={handleCommentSubmit}
-                  disabled={submittingComment || !commentBody.trim()}
-                  style={{ color: 'var(--accent)' }}
-                  className="text-xs self-end disabled:opacity-40 transition-opacity"
-                >
-                  {submittingComment ? 'Posting...' : 'Post comment'}
-                </button>
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    onClick={handleCommentSubmit}
+                    disabled={submittingComment || !commentBody.trim()}
+                    style={{ backgroundColor: 'var(--accent)', color: '#000' }}
+                    className="text-xs"
+                  >
+                    {submittingComment ? 'Posting…' : 'Post'}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
