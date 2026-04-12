@@ -73,7 +73,7 @@ const initialUI: AppUI = {
   currentView: 'today',
   calendarYear: new Date().getFullYear(),
   calendarMonth: new Date().getMonth(),
-  calendarSelectedDay: null,
+  calendarSelectedDay: new Date().toISOString().slice(0, 10),
   todayFilterType: '',
   todayFilterPriority: '',
   issuesFilterType: '',
