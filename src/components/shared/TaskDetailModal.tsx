@@ -276,7 +276,11 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 {task.type}
               </span>
               <button
-                onClick={() => activeTaskId && toggleTaskPin(activeTaskId, !task.pinned)}
+                onClick={async () => {
+                  if (!activeTaskId) return
+                  await toggleTaskPin(activeTaskId, !task.pinned)
+                  await fetchTask(activeTaskId)
+                }}
                 style={{
                   backgroundColor: task.pinned ? 'var(--accent)' : 'var(--surface2)',
                   color: task.pinned ? '#0d1117' : 'var(--text-muted)',
