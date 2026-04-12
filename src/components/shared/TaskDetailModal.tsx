@@ -25,6 +25,7 @@ interface TaskRow {
   body: string | null
   parent_id: string | null
   type: string
+  pinned: boolean
 }
 
 interface SubtaskRow {
@@ -93,7 +94,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   // Navigation stack for subtask drill-in
   const [activeTaskId, setActiveTaskId] = useState<string | null>(taskId)
 
-  const { changeTaskStatus, postComment } = useMutations()
+  const { changeTaskStatus, postComment, toggleTaskPin } = useMutations()
   const { refreshTasks } = useDataLoader()
   const commentRef = useRef<HTMLTextAreaElement>(null)
 
@@ -274,6 +275,18 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               >
                 {task.type}
               </span>
+              <button
+                onClick={() => activeTaskId && toggleTaskPin(activeTaskId, !task.pinned)}
+                style={{
+                  backgroundColor: task.pinned ? 'var(--accent)' : 'var(--surface2)',
+                  color: task.pinned ? '#0d1117' : 'var(--text-muted)',
+                  border: '1px solid var(--border)',
+                }}
+                className="text-[10px] rounded px-1.5 py-0.5 font-medium hover:opacity-80 transition-opacity"
+                title={task.pinned ? 'Unpin from today' : 'Pin to today'}
+              >
+                {task.pinned ? '📌 Pinned' : '📌 Pin to today'}
+              </button>
             </div>
           )}
         </DialogHeader>

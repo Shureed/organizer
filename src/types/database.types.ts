@@ -27,6 +27,7 @@ export type Database = {
           id: string
           name: string
           parent_id: string | null
+          pinned: boolean
           priority: Database["public"]["Enums"]["priority_level"] | null
           space_id: string | null
           status: Database["public"]["Enums"]["item_status"] | null
@@ -46,6 +47,7 @@ export type Database = {
           id?: string
           name: string
           parent_id?: string | null
+          pinned?: boolean
           priority?: Database["public"]["Enums"]["priority_level"] | null
           space_id?: string | null
           status?: Database["public"]["Enums"]["item_status"] | null
@@ -65,6 +67,7 @@ export type Database = {
           id?: string
           name?: string
           parent_id?: string | null
+          pinned?: boolean
           priority?: Database["public"]["Enums"]["priority_level"] | null
           space_id?: string | null
           status?: Database["public"]["Enums"]["item_status"] | null
@@ -502,6 +505,7 @@ export type Database = {
           id: string | null
           name: string | null
           parent_id: string | null
+          pinned: boolean | null
           priority: Database["public"]["Enums"]["priority_level"] | null
           project_name: string | null
           space_id: string | null
@@ -728,6 +732,7 @@ export type Database = {
           id: string | null
           name: string | null
           parent_id: string | null
+          pinned: boolean | null
           priority: Database["public"]["Enums"]["priority_level"] | null
           project_name: string | null
           space_id: string | null

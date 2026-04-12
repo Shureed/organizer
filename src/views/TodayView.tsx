@@ -345,13 +345,19 @@ export function TodayView() {
 
   const completedTodayCount = data.completedToday.length
 
-  // Filtered today tasks
+  // Pinned tasks (shown regardless of date)
+  const pinnedTasks = data.tasks.filter((t: ActiveTask) => t.pinned)
+
+  // Filtered today tasks (exclude pinned)
   const todayTasks = data.tasks.filter((t: ActiveTask) => {
+    if (t.pinned) return false
     if (t.date !== today) return false
     if (ui.todayFilterType && t.type !== ui.todayFilterType) return false
     if (ui.todayFilterPriority && t.priority !== ui.todayFilterPriority) return false
     return true
   })
+
+  const { toggleTaskPin } = useMutations()
 
   const handleTaskClick = (id: string | null) => {
     if (id) setSelectedTaskId(id)
@@ -415,7 +421,27 @@ export function TodayView() {
         </select>
       </div>
 
-      {/* 3. Overdue section */}
+      {/* 3. Pinned tasks */}
+      {pinnedTasks.length > 0 && (
+        <CollapsibleSection
+          title="Pinned"
+          count={pinnedTasks.length}
+          defaultOpen={true}
+          accentColor="var(--accent)"
+        >
+          {pinnedTasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              showProject={true}
+              onClick={() => handleTaskClick(task.id)}
+              onPin={(pinned) => task.id && toggleTaskPin(task.id, pinned)}
+            />
+          ))}
+        </CollapsibleSection>
+      )}
+
+      {/* 4. Overdue section */}
       {overdueItems.length > 0 && (
         <CollapsibleSection
           title="Overdue"
@@ -430,6 +456,7 @@ export function TodayView() {
               showDate={true}
               showProject={true}
               onClick={() => handleTaskClick(task.id)}
+              onPin={(pinned) => task.id && toggleTaskPin(task.id, pinned)}
             />
           ))}
         </CollapsibleSection>
@@ -452,6 +479,7 @@ export function TodayView() {
               task={task}
               showProject={true}
               onClick={() => handleTaskClick(task.id)}
+              onPin={(pinned) => task.id && toggleTaskPin(task.id, pinned)}
             />
           ))
         )}

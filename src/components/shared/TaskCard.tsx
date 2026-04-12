@@ -9,6 +9,7 @@ interface TaskCardProps {
   showProject?: boolean
   showDate?: boolean
   dimmed?: boolean
+  onPin?: (pinned: boolean) => void
 }
 
 function formatDate(dateStr: string | null | undefined): string | null {
@@ -22,7 +23,7 @@ function formatDate(dateStr: string | null | undefined): string | null {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export function TaskCard({ task, onClick, showProject = false, showDate = false, dimmed = false }: TaskCardProps) {
+export function TaskCard({ task, onClick, showProject = false, showDate = false, dimmed = false, onPin }: TaskCardProps) {
   const formattedDate = showDate ? formatDate(task.date) : null
 
   return (
@@ -40,6 +41,16 @@ export function TaskCard({ task, onClick, showProject = false, showDate = false,
       className={`rounded-xl p-3 flex flex-col gap-2 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]/40 ${onClick ? 'card-interactive' : ''}`}
     >
       <div className="flex items-start gap-2">
+        {onPin && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onPin(!task.pinned) }}
+            style={{ color: task.pinned ? 'var(--accent)' : 'var(--text-muted)' }}
+            className="shrink-0 mt-0.5 text-xs hover:opacity-70 transition-opacity"
+            title={task.pinned ? 'Unpin' : 'Pin to today'}
+          >
+            📌
+          </button>
+        )}
         <PriorityDot priority={task.priority} />
         <span
           style={{ color: 'var(--text)' }}

@@ -81,6 +81,16 @@ export function useMutations() {
     await refreshInbox()
   }
 
+  const toggleTaskPin = async (id: string, pinned: boolean) => {
+    const { error } = await supabase
+      .from('action_node')
+      .update({ pinned })
+      .eq('id', id)
+
+    if (error) throw error
+    await refreshTasks()
+  }
+
   const addTask = async (task: AddTaskInput) => {
     const { error } = await supabase.from('action_node').insert({
       name: task.name,
@@ -120,5 +130,5 @@ export function useMutations() {
     if (error) throw error
   }
 
-  return { changeTaskStatus, archiveInbox, togglePin, addTask, addInbox, postComment }
+  return { changeTaskStatus, archiveInbox, togglePin, toggleTaskPin, addTask, addInbox, postComment }
 }
