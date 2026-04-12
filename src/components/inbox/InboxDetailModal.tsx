@@ -9,11 +9,12 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { Button } from '../ui/button'
+import { CommentSection } from '../shared/CommentSection'
+import type { CommentRow } from '../shared/CommentSection'
 import { SourceBadge } from './SourceBadge'
 import type { Database } from '../../types/database.types'
 
 type InboxRow = Database['public']['Tables']['inbox']['Row']
-type CommentRow = Database['public']['Tables']['comments']['Row']
 
 interface InboxDetailModalProps {
   itemId: string | null
@@ -28,17 +29,6 @@ function formatDateTime(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   })
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
 }
 
 export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
@@ -176,79 +166,14 @@ export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
             )}
 
             {/* Comments section */}
-            <div
-              style={{ borderTop: '1px solid var(--border)' }}
-              className="pt-3 mt-1"
-            >
-              <p style={{ color: 'var(--text-muted)' }} className="text-xs font-medium mb-2">
-                Comments
-              </p>
-
-              {comments.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)' }} className="text-xs">
-                  No comments yet.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-2 mb-3">
-                  {comments.map((c) => (
-                    <div key={c.id} className="flex items-start gap-2">
-                      <div
-                        style={{
-                          backgroundColor: c.actor === 'shureed' ? 'var(--surface2)' : 'rgba(88,166,255,0.15)',
-                          color: c.actor === 'shureed' ? 'var(--text-muted)' : 'var(--accent)',
-                          border: '1px solid var(--border)',
-                          flexShrink: 0,
-                        }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                        title={c.actor}
-                      >
-                        {c.actor === 'shureed' ? 'S' : '✦'}
-                      </div>
-                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                        <p style={{ color: 'var(--text)' }} className="text-sm leading-snug whitespace-pre-wrap break-words">
-                          {c.body}
-                        </p>
-                        <p style={{ color: 'var(--text-muted)' }} className="text-[10px]">
-                          {timeAgo(c.created_at ?? '')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-2 mt-2">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add a comment…"
-                  rows={2}
-                  style={{
-                    backgroundColor: 'var(--surface2)',
-                    border: '1px solid var(--border)',
-                    color: 'var(--text)',
-                    resize: 'none',
-                  }}
-                  className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                      e.preventDefault()
-                      handleSubmitComment()
-                    }
-                  }}
-                />
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    onClick={handleSubmitComment}
-                    disabled={submitting || !commentText.trim()}
-                    style={{ backgroundColor: 'var(--accent)', color: '#000' }}
-                    className="text-xs"
-                  >
-                    {submitting ? 'Posting…' : 'Post'}
-                  </Button>
-                </div>
-              </div>
+            <div style={{ borderTop: '1px solid var(--border)' }} className="pt-3 mt-1">
+              <CommentSection
+                comments={comments}
+                value={commentText}
+                onChange={setCommentText}
+                onSubmit={handleSubmitComment}
+                submitting={submitting}
+              />
             </div>
           </>
         ) : (

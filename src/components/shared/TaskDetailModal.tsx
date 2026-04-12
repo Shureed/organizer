@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { Button } from '../ui/button'
+import { CommentSection } from './CommentSection'
+import type { CommentRow } from './CommentSection'
 import type { Database } from '../../types/database.types'
 
 type ItemStatus = Database['public']['Enums']['item_status']
@@ -36,14 +38,6 @@ interface SubtaskRow {
   status: ItemStatus | null
 }
 
-interface CommentRow {
-  id: string
-  actor: string
-  body: string
-  created_at: string
-  pending?: boolean
-}
-
 interface RelatedItem {
   link_id: string
   entity_type: string
@@ -61,17 +55,6 @@ interface TaskDetailModalProps {
 const STATUS_OPTIONS: ItemStatus[] = ['open', 'in_progress', 'waiting', 'done', 'cancelled']
 const PRIORITY_OPTIONS: PriorityLevel[] = ['high', 'medium', 'low']
 const BUCKET_OPTIONS: ItemBucket[] = ['needs_doing', 'someday', 'maybe']
-
-function timeAgo(ts: string): string {
-  const diff = Date.now() - new Date(ts).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
 
 export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   const [task, setTask] = useState<TaskRow | null>(null)
@@ -100,7 +83,6 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
   const { changeTaskStatus, postComment, toggleTaskPin } = useMutations()
   const { refreshTasks } = useDataLoader()
-  const commentRef = useRef<HTMLTextAreaElement>(null)
   const commentsBottomRef = useRef<HTMLDivElement>(null)
 
   const fetchTask = useCallback(async (id: string) => {
@@ -261,13 +243,6 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
       setError(e instanceof Error ? e.message : 'Failed to post comment')
     } finally {
       setSubmittingComment(false)
-    }
-  }
-
-  const handleCommentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-      e.preventDefault()
-      handleCommentSubmit()
     }
   }
 
@@ -545,71 +520,14 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
             </div>
 
             {/* Comments */}
-            <div className="flex flex-col gap-2">
-              <p style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
-                Comments
-              </p>
-
-              {comments.length > 0 && (
-                <div className="flex flex-col gap-2">
-                  {comments.map((c) => (
-                    <div key={c.id} className={`flex items-start gap-2${c.pending ? ' opacity-50' : ''}`}>
-                      <div
-                        style={{
-                          backgroundColor: c.actor === 'shureed' ? 'var(--surface2)' : 'rgba(88,166,255,0.15)',
-                          color: c.actor === 'shureed' ? 'var(--text-muted)' : 'var(--accent)',
-                          border: '1px solid var(--border)',
-                          flexShrink: 0,
-                        }}
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                        title={c.actor}
-                      >
-                        {c.actor === 'shureed' ? 'S' : '✦'}
-                      </div>
-                      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-                        <p style={{ color: 'var(--text)' }} className="text-sm leading-snug whitespace-pre-wrap break-words">
-                          {c.body}
-                        </p>
-                        <p style={{ color: 'var(--text-muted)' }} className="text-[10px]">
-                          {c.pending ? 'Posting…' : timeAgo(c.created_at)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div ref={commentsBottomRef} />
-
-              <div className="flex flex-col gap-1">
-                <textarea
-                  ref={commentRef}
-                  value={commentBody}
-                  onChange={(e) => setCommentBody(e.target.value)}
-                  onKeyDown={handleCommentKeyDown}
-                  placeholder="Add a comment… (Cmd+Enter to submit)"
-                  rows={2}
-                  style={{
-                    backgroundColor: 'var(--surface2)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--border)',
-                    resize: 'none',
-                  }}
-                  className="rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)] w-full"
-                />
-                <div className="flex justify-end">
-                  <Button
-                    size="sm"
-                    onClick={handleCommentSubmit}
-                    disabled={submittingComment || !commentBody.trim()}
-                    style={{ backgroundColor: 'var(--accent)', color: '#000' }}
-                    className="text-xs"
-                  >
-                    {submittingComment ? 'Posting…' : 'Post'}
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <CommentSection
+              comments={comments}
+              value={commentBody}
+              onChange={setCommentBody}
+              onSubmit={handleCommentSubmit}
+              submitting={submittingComment}
+              bottomRef={commentsBottomRef}
+            />
           </div>
         )}
       </DialogContent>
