@@ -18,6 +18,8 @@ import { CalendarView } from './views/CalendarView'
 import { RecentsView } from './views/RecentsView'
 import { IssuesView } from './views/IssuesView'
 import { InboxView } from './views/InboxView'
+import { TaskDetailModal } from './components/shared/TaskDetailModal'
+import { InboxDetailModal } from './components/inbox/InboxDetailModal'
 import './App.css'
 
 type View = 'today' | 'calendar' | 'recents' | 'issues' | 'inbox'
@@ -30,20 +32,15 @@ const TABS: { id: View; label: string; Icon: React.ComponentType<{ size?: number
   { id: 'inbox', label: 'Inbox', Icon: Inbox },
 ]
 
-// Navigate to the correct view based on item type
-function viewForItemType(type: string): View {
-  if (type === 'inbox') return 'inbox'
-  if (type === 'project') return 'today'
-  return 'today'
+// ── Search Bar ─────────────────────────────────────────────────────────────────
+interface SearchBarProps {
+  onSelect: (id: string, type: string) => void
 }
 
-// ── Search Bar ─────────────────────────────────────────────────────────────────
-function SearchBar() {
+function SearchBar({ onSelect }: SearchBarProps) {
   const { search } = useSearch()
-  const patchUI = useAppStore((s) => s.patchUI)
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const results = query.trim().length >= 2 ? search(query) : []
@@ -64,9 +61,8 @@ function SearchBar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
-  const handleSelect = (type: string) => {
-    const view = viewForItemType(type)
-    patchUI({ currentView: view })
+  const handleSelect = (id: string, type: string) => {
+    onSelect(id, type)
     setQuery('')
     setOpen(false)
   }
@@ -82,7 +78,6 @@ function SearchBar() {
       >
         <Search size={14} style={{ color: 'var(--text-muted)' }} strokeWidth={2} />
         <input
-          ref={inputRef}
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -109,7 +104,7 @@ function SearchBar() {
           {results.slice(0, 12).map((r) => (
             <button
               key={`${r.type}-${r.id}`}
-              onClick={() => handleSelect(r.type)}
+              onClick={() => handleSelect(r.id, r.type)}
               className="w-full flex items-start gap-2 px-3 py-2.5 text-left hover:bg-[var(--surface2)] transition-colors"
             >
               <span
@@ -148,6 +143,9 @@ function MainApp() {
   const { loadAll } = useDataLoader()
   useAutoRefresh(30000)
 
+  const [searchSelectedId, setSearchSelectedId] = useState<string | null>(null)
+  const [searchSelectedType, setSearchSelectedType] = useState<string | null>(null)
+
   // Initial load
   useEffect(() => {
     loadAll()
@@ -160,6 +158,16 @@ function MainApp() {
       buildSearchIndex(data)
     }
   }, [data])
+
+  const handleSearchSelect = (id: string, type: string) => {
+    setSearchSelectedId(id)
+    setSearchSelectedType(type)
+  }
+
+  const handleSearchModalClose = () => {
+    setSearchSelectedId(null)
+    setSearchSelectedType(null)
+  }
 
   return (
     <div
@@ -174,7 +182,7 @@ function MainApp() {
         }}
         className="px-3 py-2 flex items-center gap-2 sticky top-0 z-30"
       >
-        <SearchBar />
+        <SearchBar onSelect={handleSearchSelect} />
       </div>
 
       {/* View content */}
@@ -206,6 +214,13 @@ function MainApp() {
           )
         })}
       </nav>
+
+      {/* Search result modals — rendered at top level, no tab switch */}
+      {searchSelectedType === 'inbox' ? (
+        <InboxDetailModal itemId={searchSelectedId} onClose={handleSearchModalClose} />
+      ) : (
+        <TaskDetailModal taskId={searchSelectedId} onClose={handleSearchModalClose} />
+      )}
     </div>
   )
 }
