@@ -69,7 +69,7 @@ export function CalendarView() {
       if (t.id && t.date) addTask({ id: t.id, name: t.name, status: t.status, date: t.date })
     }
     for (const t of data.closedTasks) {
-      if (t.id && t.date) addTask({ id: t.id, name: t.name, status: t.status, date: t.date })
+      if (t.id && t.date && t.status !== 'cancelled') addTask({ id: t.id, name: t.name, status: t.status, date: t.date })
     }
 
     return map
