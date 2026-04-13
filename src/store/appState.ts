@@ -45,8 +45,6 @@ export interface AppUI {
   calendarYear: number
   calendarMonth: number
   calendarSelectedDay: string | null
-  todayFilterType: string
-  todayFilterPriority: string
   issuesFilterType: string
   issuesFilterPriority: string
   showClosedSearch: boolean
@@ -80,8 +78,6 @@ const initialUI: AppUI = {
   calendarYear: new Date().getFullYear(),
   calendarMonth: new Date().getMonth(),
   calendarSelectedDay: new Date().toISOString().slice(0, 10),
-  todayFilterType: '',
-  todayFilterPriority: '',
   issuesFilterType: '',
   issuesFilterPriority: '',
   showClosedSearch: false,

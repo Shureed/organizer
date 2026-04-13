@@ -338,7 +338,7 @@ function CompletedTaskRow({ task }: { task: ActionNode }) {
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export function TodayView() {
-  const { data, ui, patchUI } = useAppStore()
+  const { data } = useAppStore()
   const { refreshTasks } = useDataLoader()
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [showAddTask, setShowAddTask] = useState(false)
@@ -369,8 +369,6 @@ export function TodayView() {
   const todayTasks = data.tasks.filter((t: ActiveTask) => {
     if (t.pinned) return false
     if (t.date !== today) return false
-    if (ui.todayFilterType && t.type !== ui.todayFilterType) return false
-    if (ui.todayFilterPriority && t.priority !== ui.todayFilterPriority) return false
     return true
   })
 
@@ -394,46 +392,6 @@ export function TodayView() {
         <StatCard value={dueTodayCount} label="Due today" />
         <StatCard value={overdueItems.length} label="Overdue" />
         <StatCard value={completedTodayCount} label="Done today" />
-      </div>
-
-      {/* 2. Filters */}
-      <div className="flex gap-2">
-        <select
-          value={ui.todayFilterType}
-          onChange={(e) => patchUI({ todayFilterType: e.target.value })}
-          style={{
-            backgroundColor: 'var(--surface)',
-            color: ui.todayFilterType ? 'var(--text)' : 'var(--text-muted)',
-            border: '1px solid var(--border)',
-          }}
-          className="flex-1 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-        >
-          <option value="">All types</option>
-          <option value="task">Task</option>
-          <option value="bug">Bug</option>
-          <option value="improvement">Improvement</option>
-          <option value="feature">Feature</option>
-          <option value="idea">Idea</option>
-          <option value="thought">Thought</option>
-          <option value="context_gathering">Context</option>
-          <option value="plan">Plan</option>
-        </select>
-
-        <select
-          value={ui.todayFilterPriority}
-          onChange={(e) => patchUI({ todayFilterPriority: e.target.value })}
-          style={{
-            backgroundColor: 'var(--surface)',
-            color: ui.todayFilterPriority ? 'var(--text)' : 'var(--text-muted)',
-            border: '1px solid var(--border)',
-          }}
-          className="flex-1 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-        >
-          <option value="">All priorities</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-        </select>
       </div>
 
       {/* 3. Pinned tasks */}
