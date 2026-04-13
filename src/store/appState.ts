@@ -37,6 +37,7 @@ export interface AppData {
   inbox: InboxItem[]
   chainStatus: ChainStatusItem[]
   completedToday: ActionNode[]
+  pinnedDoneTasks: ActionNode[]
   recentItems: Pick<ActionNode, 'id' | 'name' | 'status' | 'updated_at' | 'type' | 'priority'>[]
 }
 
@@ -70,6 +71,7 @@ const initialData: AppData = {
   inbox: [],
   chainStatus: [],
   completedToday: [],
+  pinnedDoneTasks: [],
   recentItems: [],
 }
 

@@ -362,8 +362,11 @@ export function TodayView() {
 
   const completedTodayCount = data.completedToday.length
 
-  // Pinned tasks (shown regardless of date)
-  const pinnedTasks = data.tasks.filter((t: ActiveTask) => t.pinned)
+  // Pinned tasks (shown regardless of date) — includes done pinned tasks that linger until unpinned
+  const pinnedTasks: ActiveTask[] = [
+    ...data.tasks.filter((t: ActiveTask) => t.pinned),
+    ...(data.pinnedDoneTasks as unknown as ActiveTask[]),
+  ]
 
   // Filtered today tasks (exclude pinned)
   const todayTasks = data.tasks.filter((t: ActiveTask) => {
@@ -407,7 +410,8 @@ export function TodayView() {
               key={task.id}
               task={task}
               showProject={true}
-              onClick={() => handleTaskClick(task.id)}
+              dimmed={task.status === 'done'}
+              onClick={() => handleTaskClick(task.id ?? null)}
             />
           ))}
         </CollapsibleSection>

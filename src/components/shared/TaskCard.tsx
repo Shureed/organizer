@@ -67,7 +67,10 @@ export function TaskCard({ task, onClick, showProject = false, showDate = false,
         </button>
         <PriorityDot priority={task.priority} />
         <span
-          style={{ color: 'var(--text)' }}
+          style={{
+            color: 'var(--text)',
+            textDecoration: task.status === 'done' ? 'line-through' : undefined,
+          }}
           className="text-sm leading-snug flex-1 min-w-0"
         >
           {task.name}

@@ -49,6 +49,7 @@ export function useDataLoader() {
       inboxRes,
       chainStatusRes,
       completedTodayRes,
+      pinnedDoneTasksRes,
       recentItemsRes,
     ] = await Promise.all([
       supabase
@@ -104,6 +105,13 @@ export function useDataLoader() {
 
       supabase
         .from('action_node')
+        .select('*')
+        .eq('pinned', true)
+        .eq('status', 'done')
+        .eq('archived', false),
+
+      supabase
+        .from('action_node')
         .select('id, name, status, updated_at, type, priority')
         .eq('archived', false)
         .order('updated_at', { ascending: false })
@@ -121,6 +129,7 @@ export function useDataLoader() {
       inbox: inboxRes.data ?? [],
       chainStatus: chainStatusRes.data ?? [],
       completedToday: completedTodayRes.data ?? [],
+      pinnedDoneTasks: pinnedDoneTasksRes.data ?? [],
       recentItems: recentItemsRes.data ?? [],
     })
   }
@@ -128,7 +137,7 @@ export function useDataLoader() {
   const refreshTasks = async () => {
     const todayStart = getTodayETStart()
 
-    const [tasksRes, closedTasksRes, completedTodayRes, recentItemsRes] =
+    const [tasksRes, closedTasksRes, completedTodayRes, pinnedDoneTasksRes, recentItemsRes] =
       await Promise.all([
         supabase
           .from('v_active_tasks')
@@ -151,6 +160,13 @@ export function useDataLoader() {
 
         supabase
           .from('action_node')
+          .select('*')
+          .eq('pinned', true)
+          .eq('status', 'done')
+          .eq('archived', false),
+
+        supabase
+          .from('action_node')
           .select('id, name, status, updated_at, type, priority')
           .eq('archived', false)
           .order('updated_at', { ascending: false })
@@ -161,6 +177,7 @@ export function useDataLoader() {
       tasks: tasksRes.data ?? [],
       closedTasks: closedTasksRes.data ?? [],
       completedToday: completedTodayRes.data ?? [],
+      pinnedDoneTasks: pinnedDoneTasksRes.data ?? [],
       recentItems: recentItemsRes.data ?? [],
     })
   }
