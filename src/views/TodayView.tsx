@@ -8,8 +8,7 @@ import type { ActiveTask, ActiveProject, ActivityLogItem, ActionNode } from '../
 
 // Today's date string in local time (YYYY-MM-DD)
 function getTodayStr(): string {
-  const now = new Date()
-  return now.toISOString().slice(0, 10)
+  return new Date().toLocaleDateString('en-CA')
 }
 
 function timeAgo(ts: string): string {
