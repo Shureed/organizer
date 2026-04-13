@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/appState'
 import { useDataLoader } from '../hooks/useDataLoader'
 import { useMutations } from '../hooks/useMutations'
 import { TaskCard } from '../components/shared/TaskCard'
 import { TaskDetailModal } from '../components/shared/TaskDetailModal'
+import { TypeBadge } from '../components/shared/TypeBadge'
+import { StatusChip } from '../components/shared/StatusChip'
+import { supabase } from '../lib/supabase'
 import type { ActiveTask, ActiveProject, ChainStatusItem, ActionNode } from '../store/appState'
 
 // Today's date string in local time (YYYY-MM-DD)
@@ -259,17 +262,29 @@ function AddTaskDialog({ projects, onClose }: AddTaskDialogProps) {
 }
 
 // ── Chain Status Card ──────────────────────────────────────────────────────────
-function statusColor(status: string): string {
-  switch (status) {
-    case 'done': return '#3fb950'
-    case 'cancelled': return '#6e7681'
-    case 'in_progress': return '#58a6ff'
-    case 'open': return 'var(--text-muted)'
-    default: return 'var(--text-muted)'
-  }
+interface ChainNode {
+  id: string
+  name: string
+  type: string
+  status: string
 }
 
-function ChainStatusCard({ item }: { item: ChainStatusItem }) {
+function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTask: (id: string) => void }) {
+  const [chainNodes, setChainNodes] = useState<ChainNode[]>([])
+
+  useEffect(() => {
+    if (!item.origin_id) return
+    supabase
+      .from('action_node')
+      .select('id, name, type, status')
+      .eq('chain_origin_id', item.origin_id)
+      .eq('archived', false)
+      .order('created_at', { ascending: true })
+      .then(({ data }) => {
+        if (data) setChainNodes(data as ChainNode[])
+      })
+  }, [item.origin_id])
+
   return (
     <div
       style={{
@@ -277,37 +292,39 @@ function ChainStatusCard({ item }: { item: ChainStatusItem }) {
         border: '1px solid var(--border)',
         boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
       }}
-      className="rounded-xl p-3 flex flex-col gap-2"
+      className="rounded-xl overflow-hidden flex flex-col"
     >
-      <div className="flex items-center gap-2">
-        <span style={{ color: 'var(--text)' }} className="text-sm font-medium flex-1 min-w-0 truncate">
+      <button
+        onClick={() => item.origin_id && onOpenTask(item.origin_id)}
+        className="flex items-center gap-2 px-3 py-2.5 text-left w-full"
+        style={{ backgroundColor: 'transparent' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--surface2)' }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
+      >
+        <TypeBadge type={item.origin_type} />
+        <span style={{ color: 'var(--text)' }} className="flex-1 text-sm font-medium truncate">
           {item.origin_name}
         </span>
-        <span
-          style={{
-            color: statusColor(item.origin_status ?? ''),
-            backgroundColor: `${statusColor(item.origin_status ?? '')}22`,
-            border: `1px solid ${statusColor(item.origin_status ?? '')}44`,
-          }}
-          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap"
-        >
-          {item.origin_status}
-        </span>
-      </div>
-      {(item.chain_nodes?.length ?? 0) > 0 && (
-        <ul className="flex flex-col gap-1 pl-1">
-          {item.chain_nodes!.map((node, i) => (
-            <li key={i} className="flex items-start gap-1.5">
-              <span style={{ color: 'var(--text-muted)' }} className="text-[10px] mt-0.5 leading-none select-none">
-                {i === item.chain_nodes!.length - 1 ? '└' : '├'}
-              </span>
-              <span style={{ color: 'var(--text-muted)' }} className="text-xs leading-snug">
-                {node}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+        <StatusChip status={item.origin_status} />
+      </button>
+      {chainNodes.map((node) => (
+        <div key={node.id}>
+          <div style={{ height: '1px', backgroundColor: 'var(--border)' }} className="mx-3" />
+          <button
+            onClick={() => onOpenTask(node.id)}
+            className="flex items-center gap-2 px-3 py-2 text-left w-full"
+            style={{ backgroundColor: 'transparent' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--surface2)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
+          >
+            <TypeBadge type={node.type} />
+            <span style={{ color: 'var(--text-muted)' }} className="flex-1 text-sm truncate">
+              {node.name}
+            </span>
+            <StatusChip status={node.status} />
+          </button>
+        </div>
+      ))}
     </div>
   )
 }
@@ -478,7 +495,7 @@ export function TodayView() {
           <p style={{ color: 'var(--text)' }} className="text-sm font-semibold">Active Chains</p>
           <div className="flex flex-col gap-2">
             {data.chainStatus.map((item) => (
-              <ChainStatusCard key={item.origin_id} item={item} />
+              <ChainStatusCard key={item.origin_id} item={item} onOpenTask={setSelectedTaskId} />
             ))}
           </div>
         </div>

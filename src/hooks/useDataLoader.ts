@@ -137,12 +137,17 @@ export function useDataLoader() {
   const refreshTasks = async () => {
     const todayStart = getTodayETStart()
 
-    const [tasksRes, closedTasksRes, completedTodayRes, pinnedDoneTasksRes, recentItemsRes] =
+    const [tasksRes, projectsRes, closedTasksRes, completedTodayRes, pinnedDoneTasksRes, recentItemsRes, chainStatusRes] =
       await Promise.all([
         supabase
           .from('v_active_tasks')
           .select('*')
           .order('date', { ascending: true, nullsFirst: false }),
+
+        supabase
+          .from('v_active_projects')
+          .select('*')
+          .order('name', { ascending: true }),
 
         supabase
           .from('action_node')
@@ -171,14 +176,20 @@ export function useDataLoader() {
           .eq('archived', false)
           .order('updated_at', { ascending: false })
           .limit(25),
+
+        supabase
+          .from('v_chain_status')
+          .select('*'),
       ])
 
     setData({
       tasks: tasksRes.data ?? [],
+      projects: projectsRes.data ?? [],
       closedTasks: closedTasksRes.data ?? [],
       completedToday: completedTodayRes.data ?? [],
       pinnedDoneTasks: pinnedDoneTasksRes.data ?? [],
       recentItems: recentItemsRes.data ?? [],
+      chainStatus: chainStatusRes.data ?? [],
     })
   }
 
