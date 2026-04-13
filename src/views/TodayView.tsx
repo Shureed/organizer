@@ -285,9 +285,9 @@ function ChainStatusCard({ item }: { item: ChainStatusItem }) {
         </span>
         <span
           style={{
-            color: statusColor(item.origin_status),
-            backgroundColor: `${statusColor(item.origin_status)}22`,
-            border: `1px solid ${statusColor(item.origin_status)}44`,
+            color: statusColor(item.origin_status ?? ''),
+            backgroundColor: `${statusColor(item.origin_status ?? '')}22`,
+            border: `1px solid ${statusColor(item.origin_status ?? '')}44`,
           }}
           className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap"
         >
