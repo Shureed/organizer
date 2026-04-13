@@ -120,42 +120,6 @@ export type Database = {
           },
         ]
       }
-      activity_log: {
-        Row: {
-          actor: Database["public"]["Enums"]["activity_actor"]
-          details: string | null
-          entity_id: string
-          entity_type: Database["public"]["Enums"]["item_type"]
-          event_type: Database["public"]["Enums"]["activity_event_type"]
-          id: string
-          summary: string
-          timestamp: string
-          user_id: string
-        }
-        Insert: {
-          actor: Database["public"]["Enums"]["activity_actor"]
-          details?: string | null
-          entity_id: string
-          entity_type: Database["public"]["Enums"]["item_type"]
-          event_type: Database["public"]["Enums"]["activity_event_type"]
-          id?: string
-          summary: string
-          timestamp?: string
-          user_id?: string
-        }
-        Update: {
-          actor?: Database["public"]["Enums"]["activity_actor"]
-          details?: string | null
-          entity_id?: string
-          entity_type?: Database["public"]["Enums"]["item_type"]
-          event_type?: Database["public"]["Enums"]["activity_event_type"]
-          id?: string
-          summary?: string
-          timestamp?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       comments: {
         Row: {
           actor: Database["public"]["Enums"]["activity_actor"]
