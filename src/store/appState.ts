@@ -9,11 +9,11 @@ export type Space = Tables<'spaces'>
 export type SpaceTree = Tables<'v_space_tree'>
 export type InboxItem = Tables<'v_new_inbox'>
 export type ChainStatusItem = {
-  origin_id: string
-  origin_name: string
-  origin_type: string
-  origin_status: string
-  chain_nodes: string[]
+  origin_id: string | null
+  origin_name: string | null
+  origin_type: string | null
+  origin_status: string | null
+  chain_nodes: string[] | null
 }
 export type ActionNode = Tables<'action_node'>
 

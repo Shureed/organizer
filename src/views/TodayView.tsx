@@ -294,12 +294,12 @@ function ChainStatusCard({ item }: { item: ChainStatusItem }) {
           {item.origin_status}
         </span>
       </div>
-      {item.chain_nodes.length > 0 && (
+      {(item.chain_nodes?.length ?? 0) > 0 && (
         <ul className="flex flex-col gap-1 pl-1">
-          {item.chain_nodes.map((node, i) => (
+          {item.chain_nodes!.map((node, i) => (
             <li key={i} className="flex items-start gap-1.5">
               <span style={{ color: 'var(--text-muted)' }} className="text-[10px] mt-0.5 leading-none select-none">
-                {i === item.chain_nodes.length - 1 ? '└' : '├'}
+                {i === item.chain_nodes!.length - 1 ? '└' : '├'}
               </span>
               <span style={{ color: 'var(--text-muted)' }} className="text-xs leading-snug">
                 {node}
