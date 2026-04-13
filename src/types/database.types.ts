@@ -704,20 +704,13 @@ export type Database = {
         }
         Relationships: []
       }
-      v_today_activity: {
+      v_chain_status: {
         Row: {
-          actor: Database["public"]["Enums"]["activity_actor"] | null
-          details: string | null
-          entity_id: string | null
-          entity_name: string | null
-          entity_type: Database["public"]["Enums"]["item_type"] | null
-          event_type: Database["public"]["Enums"]["activity_event_type"] | null
-          id: string | null
-          project_name: string | null
-          space_name: string | null
-          summary: string | null
-          task_name: string | null
-          timestamp: string | null
+          origin_id: string | null
+          origin_name: string | null
+          origin_type: Database["public"]["Enums"]["task_type"] | null
+          origin_status: Database["public"]["Enums"]["item_status"] | null
+          chain_nodes: string[] | null
         }
         Relationships: []
       }

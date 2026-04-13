@@ -47,7 +47,7 @@ export function useDataLoader() {
       spacesRes,
       spaceTreeRes,
       inboxRes,
-      activityLogRes,
+      chainStatusRes,
       completedTodayRes,
       recentItemsRes,
     ] = await Promise.all([
@@ -92,9 +92,8 @@ export function useDataLoader() {
         .order('created_at', { ascending: false }),
 
       supabase
-        .from('v_today_activity')
-        .select('*')
-        .order('timestamp', { ascending: false }),
+        .from('v_chain_status')
+        .select('*'),
 
       supabase
         .from('action_node')
@@ -120,7 +119,7 @@ export function useDataLoader() {
       spaces: spacesRes.data ?? [],
       spaceTree: spaceTreeRes.data ?? [],
       inbox: inboxRes.data ?? [],
-      activityLog: activityLogRes.data ?? [],
+      chainStatus: chainStatusRes.data ?? [],
       completedToday: completedTodayRes.data ?? [],
       recentItems: recentItemsRes.data ?? [],
     })

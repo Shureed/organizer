@@ -4,23 +4,13 @@ import { useDataLoader } from '../hooks/useDataLoader'
 import { useMutations } from '../hooks/useMutations'
 import { TaskCard } from '../components/shared/TaskCard'
 import { TaskDetailModal } from '../components/shared/TaskDetailModal'
-import type { ActiveTask, ActiveProject, ActivityLogItem, ActionNode } from '../store/appState'
+import type { ActiveTask, ActiveProject, ChainStatusItem, ActionNode } from '../store/appState'
 
 // Today's date string in local time (YYYY-MM-DD)
 function getTodayStr(): string {
   return new Date().toLocaleDateString('en-CA')
 }
 
-function timeAgo(ts: string): string {
-  const diff = Date.now() - new Date(ts).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  const days = Math.floor(hrs / 24)
-  return `${days}d ago`
-}
 
 function formatCompletedTime(ts: string | null): string {
   if (!ts) return ''
@@ -268,28 +258,56 @@ function AddTaskDialog({ projects, onClose }: AddTaskDialogProps) {
   )
 }
 
-// ── Activity Feed Item ─────────────────────────────────────────────────────────
-function ActivityItem({ item }: { item: ActivityLogItem }) {
-  const isClaude = item.actor === 'claude'
+// ── Chain Status Card ──────────────────────────────────────────────────────────
+function statusColor(status: string): string {
+  switch (status) {
+    case 'done': return '#3fb950'
+    case 'cancelled': return '#6e7681'
+    case 'in_progress': return '#58a6ff'
+    case 'open': return 'var(--text-muted)'
+    default: return 'var(--text-muted)'
+  }
+}
+
+function ChainStatusCard({ item }: { item: ChainStatusItem }) {
   return (
-    <div className="flex items-start gap-2.5">
-      <div
-        style={{
-          backgroundColor: isClaude ? 'rgba(88,166,255,0.15)' : 'var(--surface2)',
-          color: isClaude ? '#58a6ff' : 'var(--text-muted)',
-          border: '1px solid var(--border)',
-          flexShrink: 0,
-        }}
-        className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-      >
-        {isClaude ? '✦' : 'S'}
+    <div
+      style={{
+        backgroundColor: 'var(--surface)',
+        border: '1px solid var(--border)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+      }}
+      className="rounded-xl p-3 flex flex-col gap-2"
+    >
+      <div className="flex items-center gap-2">
+        <span style={{ color: 'var(--text)' }} className="text-sm font-medium flex-1 min-w-0 truncate">
+          {item.origin_name}
+        </span>
+        <span
+          style={{
+            color: statusColor(item.origin_status),
+            backgroundColor: `${statusColor(item.origin_status)}22`,
+            border: `1px solid ${statusColor(item.origin_status)}44`,
+          }}
+          className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap"
+        >
+          {item.origin_status}
+        </span>
       </div>
-      <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-        <p style={{ color: 'var(--text)' }} className="text-sm leading-snug">{item.summary}</p>
-        <p style={{ color: 'var(--text-muted)' }} className="text-[10px]">
-          {item.timestamp ? timeAgo(item.timestamp) : ''}
-        </p>
-      </div>
+      {item.chain_nodes.length > 0 && (
+        <ul className="flex flex-col gap-1 pl-1">
+          {item.chain_nodes.map((node, i) => (
+            <li key={i} className="flex items-start gap-1.5">
+              <span style={{ color: 'var(--text-muted)' }} className="text-[10px] mt-0.5 leading-none select-none">
+                {i === item.chain_nodes.length - 1 ? '└' : '├'}
+              </span>
+              <span style={{ color: 'var(--text-muted)' }} className="text-xs leading-snug">
+                {node}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
@@ -492,13 +510,13 @@ export function TodayView() {
         </CollapsibleSection>
       )}
 
-      {/* 6. Activity feed */}
-      {data.activityLog.length > 0 && (
+      {/* 6. Active Chains */}
+      {data.chainStatus.length > 0 && (
         <div className="flex flex-col gap-3">
-          <p style={{ color: 'var(--text)' }} className="text-sm font-semibold">Activity</p>
-          <div className="flex flex-col gap-3">
-            {data.activityLog.map((item) => (
-              <ActivityItem key={item.id} item={item} />
+          <p style={{ color: 'var(--text)' }} className="text-sm font-semibold">Active Chains</p>
+          <div className="flex flex-col gap-2">
+            {data.chainStatus.map((item) => (
+              <ChainStatusCard key={item.origin_id} item={item} />
             ))}
           </div>
         </div>
