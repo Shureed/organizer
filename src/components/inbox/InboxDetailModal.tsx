@@ -158,7 +158,7 @@ export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
                   variant="outline"
                   onClick={handleDismiss}
                   disabled={dismissing}
-                  style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+                  style={{ backgroundColor: 'rgba(248,81,73,0.08)', borderColor: 'rgba(248,81,73,0.25)', color: 'var(--red)' }}
                 >
                   {dismissing ? 'Dismissing…' : 'Dismiss'}
                 </Button>

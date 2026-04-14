@@ -250,7 +250,7 @@ export function InboxView() {
               variant="outline"
               size="sm"
               onClick={() => setCaptureOpen(false)}
-              style={{ borderColor: 'var(--border)', color: 'var(--text-muted)' }}
+              style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'var(--border)', color: 'var(--text-muted)' }}
             >
               Cancel
             </Button>
