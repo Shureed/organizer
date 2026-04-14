@@ -277,7 +277,8 @@ function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTa
     supabase
       .from('action_node')
       .select('id, name, type, status')
-      .eq('chain_origin_id', item.origin_id)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .eq('chain_origin_id' as any, item.origin_id)
       .eq('archived', false)
       .order('created_at', { ascending: true })
       .then(({ data }) => {
