@@ -250,7 +250,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
   return (
     <Dialog open={!!taskId} onOpenChange={(open) => { if (!open) onClose() }}>
       <DialogContent
-        className="max-w-lg w-full max-h-[85vh] overflow-y-auto"
+        className="max-w-lg w-full max-h-[85vh] overflow-y-auto overflow-x-hidden"
         style={{ backgroundColor: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
       >
         <DialogHeader>
@@ -293,7 +293,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
         )}
 
         {!loading && task && (
-          <div className="flex flex-col gap-4 mt-1">
+          <div className="flex flex-col gap-4 mt-1 min-w-0">
             {/* Parent node link */}
             {parentNode && (
               <div className="flex items-center gap-2">
