@@ -2,43 +2,10 @@ import { useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppStore } from '../store/appState'
 
-/** Returns midnight today in America/New_York as a UTC ISO string */
-function getTodayETStart(): string {
-  const now = new Date()
-
-  // Get today's date string in ET (YYYY-MM-DD)
-  const etDateStr = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/New_York',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(now)
-
-  // Find the UTC offset for ET at noon today, then compute midnight UTC
-  // Test: what hour is it in ET when it's noon UTC?
-  const testDate = new Date(`${etDateStr}T12:00:00Z`)
-  const etHourAtNoonUTC = parseInt(
-    testDate.toLocaleString('en-US', {
-      timeZone: 'America/New_York',
-      hour: '2-digit',
-      hour12: false,
-    })
-  )
-  // etHourAtNoonUTC - 12 = offsetHours (e.g. -4 for EDT, -5 for EST)
-  const offsetHours = etHourAtNoonUTC - 12
-
-  // Midnight UTC for ET date = midnight ET + (negative offset in hours)
-  const midnightUTC = new Date(`${etDateStr}T00:00:00Z`)
-  midnightUTC.setUTCHours(midnightUTC.getUTCHours() - offsetHours)
-  return midnightUTC.toISOString()
-}
-
 export function useDataLoader() {
   const setData = useAppStore((s) => s.setData)
 
   const loadAll = async () => {
-    const todayStart = getTodayETStart()
-
     const [
       tasksRes,
       projectsRes,
@@ -48,7 +15,6 @@ export function useDataLoader() {
       spaceTreeRes,
       inboxRes,
       chainStatusRes,
-      completedTodayRes,
       pinnedDoneTasksRes,
       recentItemsRes,
     ] = await Promise.all([
@@ -99,13 +65,6 @@ export function useDataLoader() {
       supabase
         .from('action_node')
         .select('*')
-        .eq('status', 'done')
-        .eq('archived', false)
-        .gte('completed_at', todayStart),
-
-      supabase
-        .from('action_node')
-        .select('*')
         .eq('pinned', true)
         .eq('status', 'done')
         .eq('archived', false),
@@ -128,16 +87,13 @@ export function useDataLoader() {
       spaceTree: spaceTreeRes.data ?? [],
       inbox: inboxRes.data ?? [],
       chainStatus: chainStatusRes.data ?? [],
-      completedToday: completedTodayRes.data ?? [],
       pinnedDoneTasks: pinnedDoneTasksRes.data ?? [],
       recentItems: recentItemsRes.data ?? [],
     })
   }
 
   const refreshTasks = async () => {
-    const todayStart = getTodayETStart()
-
-    const [tasksRes, projectsRes, closedTasksRes, completedTodayRes, pinnedDoneTasksRes, recentItemsRes, chainStatusRes] =
+    const [tasksRes, projectsRes, closedTasksRes, pinnedDoneTasksRes, recentItemsRes, chainStatusRes] =
       await Promise.all([
         supabase
           .from('v_active_tasks')
@@ -155,13 +111,6 @@ export function useDataLoader() {
           .in('status', ['done', 'cancelled'])
           .eq('archived', false)
           .neq('type', 'project'),
-
-        supabase
-          .from('action_node')
-          .select('*')
-          .eq('status', 'done')
-          .eq('archived', false)
-          .gte('completed_at', todayStart),
 
         supabase
           .from('action_node')
@@ -186,7 +135,6 @@ export function useDataLoader() {
       tasks: tasksRes.data ?? [],
       projects: projectsRes.data ?? [],
       closedTasks: closedTasksRes.data ?? [],
-      completedToday: completedTodayRes.data ?? [],
       pinnedDoneTasks: pinnedDoneTasksRes.data ?? [],
       recentItems: recentItemsRes.data ?? [],
       chainStatus: chainStatusRes.data ?? [],

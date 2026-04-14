@@ -36,7 +36,6 @@ export interface AppData {
   spaceTree: SpaceTree[]
   inbox: InboxItem[]
   chainStatus: ChainStatusItem[]
-  completedToday: ActionNode[]
   pinnedDoneTasks: ActionNode[]
   recentItems: Pick<ActionNode, 'id' | 'name' | 'status' | 'updated_at' | 'type' | 'priority'>[]
 }
@@ -70,7 +69,6 @@ const initialData: AppData = {
   spaceTree: [],
   inbox: [],
   chainStatus: [],
-  completedToday: [],
   pinnedDoneTasks: [],
   recentItems: [],
 }

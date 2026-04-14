@@ -7,38 +7,13 @@ import { TaskDetailModal } from '../components/shared/TaskDetailModal'
 import { TypeBadge } from '../components/shared/TypeBadge'
 import { StatusChip } from '../components/shared/StatusChip'
 import { supabase } from '../lib/supabase'
-import type { ActiveTask, ActiveProject, ChainStatusItem, ActionNode } from '../store/appState'
+import type { ActiveTask, ActiveProject, ChainStatusItem } from '../store/appState'
 
 // Today's date string in local time (YYYY-MM-DD)
 function getTodayStr(): string {
   return new Date().toLocaleDateString('en-CA')
 }
 
-
-function formatCompletedTime(ts: string | null): string {
-  if (!ts) return ''
-  const d = new Date(ts)
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-}
-
-// ── Stat Card ──────────────────────────────────────────────────────────────────
-function StatCard({ value, label }: { value: number; label: string }) {
-  return (
-    <div
-      style={{
-        backgroundColor: 'var(--surface)',
-        border: '1px solid var(--border)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
-      }}
-      className="rounded-xl p-3 flex flex-col gap-1.5"
-    >
-      <span style={{ color: 'var(--text)' }} className="text-2xl font-bold leading-none font-mono-data">
-        {value}
-      </span>
-      <span style={{ color: 'var(--text-muted)' }} className="text-[11px] leading-snug">{label}</span>
-    </div>
-  )
-}
 
 // ── Collapsible Section ────────────────────────────────────────────────────────
 function CollapsibleSection({
@@ -330,30 +305,6 @@ function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTa
   )
 }
 
-// ── Completed Task Row ─────────────────────────────────────────────────────────
-function CompletedTaskRow({ task }: { task: ActionNode }) {
-  return (
-    <div
-      style={{
-        backgroundColor: 'var(--surface)',
-        border: '1px solid var(--border)',
-        opacity: 0.5,
-      }}
-      className="rounded-xl p-3 flex items-center gap-2"
-    >
-      <span style={{ color: '#3fb950' }} className="text-xs">✓</span>
-      <span style={{ color: 'var(--text)' }} className="text-sm flex-1 min-w-0 truncate">
-        {task.name}
-      </span>
-      {task.completed_at && (
-        <span style={{ color: 'var(--text-muted)' }} className="text-[10px] whitespace-nowrap">
-          {formatCompletedTime(task.completed_at)}
-        </span>
-      )}
-    </div>
-  )
-}
-
 // ── Main View ──────────────────────────────────────────────────────────────────
 export function TodayView() {
   const { data } = useAppStore()
@@ -364,12 +315,6 @@ export function TodayView() {
   const today = getTodayStr()
 
   // Derived data
-  const openCount = data.tasks.filter(
-    (t) => t.status === 'open' || t.status === 'in_progress'
-  ).length
-
-  const dueTodayCount = data.tasks.filter((t) => t.date === today).length
-
   const overdueItems = data.tasks.filter(
     (t) =>
       t.date != null &&
@@ -377,8 +322,6 @@ export function TodayView() {
       t.status !== 'done' &&
       t.status !== 'cancelled'
   )
-
-  const completedTodayCount = data.completedToday.length
 
   // Pinned tasks (shown regardless of date) — includes done pinned tasks that linger until unpinned
   const pinnedTasks: ActiveTask[] = [
@@ -407,15 +350,7 @@ export function TodayView() {
       className="flex flex-col gap-5 px-4 pt-5"
       style={{ paddingBottom: '80px', minHeight: '100%' }}
     >
-      {/* 1. Stats row */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <StatCard value={openCount} label="Open tasks" />
-        <StatCard value={dueTodayCount} label="Due today" />
-        <StatCard value={overdueItems.length} label="Overdue" />
-        <StatCard value={completedTodayCount} label="Done today" />
-      </div>
-
-      {/* 3. Pinned tasks */}
+      {/* Pinned tasks */}
       {pinnedTasks.length > 0 && (
         <CollapsibleSection
           title="Pinned"
@@ -477,20 +412,7 @@ export function TodayView() {
         )}
       </CollapsibleSection>
 
-      {/* 5. Completed today */}
-      {data.completedToday.length > 0 && (
-        <CollapsibleSection
-          title="Completed"
-          count={data.completedToday.length}
-          defaultOpen={false}
-        >
-          {data.completedToday.map((task) => (
-            <CompletedTaskRow key={task.id} task={task} />
-          ))}
-        </CollapsibleSection>
-      )}
-
-      {/* 6. Active Chains */}
+      {/* Active Chains */}
       {data.chainStatus.length > 0 && (
         <div className="flex flex-col gap-3">
           <p style={{ color: 'var(--text)' }} className="text-sm font-semibold">Active Chains</p>
