@@ -167,7 +167,7 @@ function AddTaskDialog({ projects, onClose }: AddTaskDialogProps) {
               color: 'var(--text)',
               border: '1px solid var(--border)',
             }}
-            className="rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)]"
+            className="rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)]"
           />
         </div>
 
@@ -184,7 +184,7 @@ function AddTaskDialog({ projects, onClose }: AddTaskDialogProps) {
                 color: 'var(--text)',
                 border: '1px solid var(--border)',
               }}
-              className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              className="rounded-lg px-2 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
             >
               <option value="">— none —</option>
               {projects.map((p) => (
@@ -207,7 +207,7 @@ function AddTaskDialog({ projects, onClose }: AddTaskDialogProps) {
                 border: '1px solid var(--border)',
                 colorScheme: 'dark',
               }}
-              className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              className="rounded-lg px-2 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
             />
           </div>
         </div>
@@ -227,7 +227,7 @@ function AddTaskDialog({ projects, onClose }: AddTaskDialogProps) {
               border: '1px solid var(--border)',
               resize: 'none',
             }}
-            className="rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)]"
+            className="rounded-lg px-3 py-2 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)]"
           />
         </div>
 

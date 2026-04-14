@@ -222,7 +222,7 @@ export function InboxView() {
                 border: '1px solid var(--border)',
                 color: 'var(--text)',
               }}
-              className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40"
+              className="w-full rounded-lg px-3 py-2 text-base placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault()
@@ -241,7 +241,7 @@ export function InboxView() {
                 color: 'var(--text)',
                 resize: 'none',
               }}
-              className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40"
+              className="w-full rounded-lg px-3 py-2 text-base placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]/40"
             />
           </div>
 

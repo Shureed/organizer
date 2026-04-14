@@ -83,7 +83,7 @@ function SearchBar({ onSelect }: SearchBarProps) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search tasks, projects, inbox…"
           style={{ color: 'var(--text)', background: 'transparent', outline: 'none', flex: 1 }}
-          className="text-sm placeholder:text-[var(--text-muted)] min-w-0"
+          className="text-base placeholder:text-[var(--text-muted)] min-w-0"
         />
         {query && (
           <button onClick={() => { setQuery(''); setOpen(false) }}>

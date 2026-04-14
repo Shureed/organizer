@@ -329,7 +329,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     color: 'var(--text)',
                     border: '1px solid var(--border)',
                   }}
-                  className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  className="rounded-lg px-2 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
                 >
                   {STATUS_OPTIONS.map((s) => (
                     <option key={s} value={s}>{s.replace('_', ' ')}</option>
@@ -350,7 +350,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     color: 'var(--text)',
                     border: '1px solid var(--border)',
                   }}
-                  className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  className="rounded-lg px-2 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
                 >
                   <option value="">— none —</option>
                   {PRIORITY_OPTIONS.map((p) => (
@@ -374,7 +374,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     border: '1px solid var(--border)',
                     colorScheme: 'dark',
                   }}
-                  className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+                  className="rounded-lg px-2 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
                 />
               </div>
 
@@ -393,7 +393,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                     border: '1px solid var(--border)',
                     opacity: isDateSet ? 0.5 : 1,
                   }}
-                  className="rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed"
+                  className="rounded-lg px-2 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)] disabled:cursor-not-allowed"
                 >
                   <option value="">— none —</option>
                   {BUCKET_OPTIONS.map((b) => (
