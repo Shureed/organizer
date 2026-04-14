@@ -90,7 +90,7 @@ export function CommentSection({ comments, value, onChange, onSubmit, submitting
             border: '1px solid var(--border)',
             resize: 'none',
           }}
-          className="w-full rounded-lg px-3 py-2 text-sm placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] w-full"
+          className="w-full rounded-lg px-3 py-2 text-base placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] w-full"
         />
         <div className="flex justify-end">
           <Button

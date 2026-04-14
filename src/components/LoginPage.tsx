@@ -71,7 +71,7 @@ export function LoginPage() {
                 border: '1px solid var(--border)',
                 color: 'var(--text)',
               }}
-              className="w-full rounded-lg px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)]"
+              className="w-full rounded-lg px-3 py-2.5 text-base outline-none focus:ring-1 focus:ring-[var(--accent)] placeholder:text-[var(--text-muted)]"
             />
 
             {error && (
