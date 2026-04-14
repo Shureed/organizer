@@ -95,11 +95,11 @@ export function InboxItem({ item, onOpenDetail }: InboxItemProps) {
           onClick={handleDismiss}
           disabled={dismissing}
           style={{
-            color: 'var(--text-muted)',
-            backgroundColor: 'var(--surface2)',
-            border: '1px solid var(--border)',
+            color: 'var(--red)',
+            backgroundColor: 'rgba(248,81,73,0.08)',
+            border: '1px solid rgba(248,81,73,0.25)',
           }}
-          className="text-[11px] px-2 py-0.5 rounded flex-shrink-0 hover:border-[#8b949e]/60 transition-colors disabled:opacity-50"
+          className="text-[11px] px-2 py-0.5 rounded flex-shrink-0 hover:bg-[rgba(248,81,73,0.15)] transition-colors disabled:opacity-50"
         >
           {dismissing ? '…' : 'Dismiss'}
         </button>
