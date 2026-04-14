@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { X } from 'lucide-react'
 import type { InboxItem as InboxItemType } from '../../store/appState'
 import { useMutations } from '../../hooks/useMutations'
 import { useDataLoader } from '../../hooks/useDataLoader'
@@ -99,9 +100,10 @@ export function InboxItem({ item, onOpenDetail }: InboxItemProps) {
             backgroundColor: 'rgba(248,81,73,0.08)',
             border: '1px solid rgba(248,81,73,0.25)',
           }}
-          className="text-[11px] px-2 py-0.5 rounded flex-shrink-0 hover:bg-[rgba(248,81,73,0.15)] transition-colors disabled:opacity-50"
+          aria-label="Dismiss"
+          className="p-1 rounded shrink-0 hover:bg-[rgba(248,81,73,0.15)] transition-colors disabled:opacity-50"
         >
-          {dismissing ? '…' : 'Dismiss'}
+          {dismissing ? '…' : <X size={12} />}
         </button>
       </div>
 
