@@ -1,11 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useAppStore } from '../store/appState'
 import { TaskCard } from '../components/calendar/TaskCard'
-import { ActionTakenRow } from '../components/calendar/ActionTakenRow'
 import { TaskDetailModal } from '../components/shared/TaskDetailModal'
-import { TypeBadge } from '../components/shared/TypeBadge'
-import { useDayActions } from '../hooks/useDayActions'
-import type { DayActionItem } from '../hooks/useDayActions'
 import type { Database } from '../types/database.types'
 
 type ItemStatus = Database['public']['Enums']['item_status']
@@ -28,88 +24,6 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const LONG_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-interface ChainGroup {
-  originId: string
-  originName: string
-  originType: string
-  isTouched: boolean // true if the origin node itself appears in dayActions
-  touchedOriginItem: DayActionItem | null
-  members: DayActionItem[]
-  maxTouchedAt: string
-}
-
-function buildChainGroups(dayActions: DayActionItem[]): {
-  groups: ChainGroup[]
-  standalones: DayActionItem[]
-} {
-  // Primary group key: project_id (nearest project ancestor) > chain_origin_id > standalone
-  const getGroupKey = (item: DayActionItem): string | null =>
-    item.project_id ?? item.chain_origin_id ?? null
-
-  const buckets = new Map<string, DayActionItem[]>()
-  const standalones: DayActionItem[] = []
-
-  for (const item of dayActions) {
-    const key = getGroupKey(item)
-    if (!key) {
-      standalones.push(item)
-    } else {
-      if (!buckets.has(key)) buckets.set(key, [])
-      buckets.get(key)!.push(item)
-    }
-  }
-
-  const groups: ChainGroup[] = []
-
-  for (const [groupKey, items] of buckets.entries()) {
-    // The header item is the node whose id IS the group key (the project or origin itself)
-    let headerItem: DayActionItem | null = null
-    const members: DayActionItem[] = []
-
-    for (const item of items) {
-      if (item.node_id === groupKey) {
-        headerItem = item
-      } else {
-        members.push(item)
-      }
-    }
-
-    // If only the project/origin was touched (no children in list), render standalone
-    if (members.length === 0) {
-      if (headerItem) standalones.push(headerItem)
-      continue
-    }
-
-    members.sort((a, b) => b.touched_at.localeCompare(a.touched_at))
-
-    const sample = items[0]
-    const isProjectGroup = !!sample.project_id
-
-    const originName =
-      headerItem?.node_name ??
-      (isProjectGroup ? sample.project_name : sample.chain_origin_name) ??
-      groupKey
-    const originType = headerItem?.node_type ?? (isProjectGroup ? 'project' : 'task')
-
-    const allTimes = items.map(i => i.touched_at)
-    const maxTouchedAt = allTimes.sort((a, b) => b.localeCompare(a))[0] ?? ''
-
-    groups.push({
-      originId: groupKey,
-      originName,
-      originType,
-      isTouched: !!headerItem,
-      touchedOriginItem: headerItem,
-      members,
-      maxTouchedAt,
-    })
-  }
-
-  groups.sort((a, b) => b.maxTouchedAt.localeCompare(a.maxTouchedAt))
-
-  return { groups, standalones }
-}
-
 function formatSelectedDay(dateStr: string): string {
   // dateStr = 'YYYY-MM-DD'
   const [year, month, day] = dateStr.split('-').map(Number)
@@ -129,13 +43,6 @@ export function CalendarView() {
   const { calendarYear, calendarMonth, calendarSelectedDay } = ui
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
-  const [actionsOpen, setActionsOpen] = useState(false)
-
-  const { items: dayActions, loading: dayActionsLoading } = useDayActions(calendarSelectedDay)
-
-  useEffect(() => {
-    setActionsOpen(false)
-  }, [calendarSelectedDay])
 
   // Today's date string
   const today = useMemo(() => {
@@ -394,107 +301,6 @@ export function CalendarView() {
               ))}
             </div>
           )}
-          {/* Actions taken section */}
-          <div className="mt-4">
-            <button
-              onClick={() => setActionsOpen(o => !o)}
-              className="flex items-center justify-between w-full text-left mb-2"
-            >
-              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-                Actions taken
-              </span>
-              <span className="flex items-center gap-1.5">
-                {dayActions.length > 0 && (
-                  <span
-                    className="text-[10px] font-mono px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-                  >
-                    {dayActions.length}
-                  </span>
-                )}
-                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                  {actionsOpen ? '▼' : '▶'}
-                </span>
-              </span>
-            </button>
-
-            {actionsOpen && (
-              <div className="flex flex-col gap-1">
-                {dayActionsLoading ? (
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading...</p>
-                ) : dayActions.length === 0 ? (
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Nothing recorded for this day.</p>
-                ) : (() => {
-                  const { groups, standalones } = buildChainGroups(dayActions)
-                  return (
-                    <>
-                      {groups.map(group => (
-                        <div key={group.originId} className="flex flex-col gap-1">
-                          {/* Group header */}
-                          {group.isTouched ? (
-                            // Active header — origin was touched today, clickable
-                            <button
-                              onClick={() => setSelectedTaskId(group.originId)}
-                              className="w-full text-left flex items-center gap-1.5 px-1 py-1 rounded transition-colors hover:bg-[var(--surface2)]"
-                            >
-                              <span className="flex-1 text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
-                                {group.originName || '(Untitled)'}
-                              </span>
-                              <div className="shrink-0">
-                                <TypeBadge type={group.originType} />
-                              </div>
-                            </button>
-                          ) : (
-                            // Muted header — origin not touched today, context only
-                            <div className="flex items-center gap-1.5 px-1 py-1">
-                              <span
-                                className="flex-1 text-xs truncate italic"
-                                style={{ color: 'var(--text-muted)', fontWeight: 400 }}
-                              >
-                                {group.originName || '(Untitled)'}
-                              </span>
-                              <div className="shrink-0">
-                                <TypeBadge type={group.originType} />
-                              </div>
-                            </div>
-                          )}
-                          {/* Member rows with left-border indent */}
-                          <div
-                            className="flex flex-col gap-1 pl-3 border-l"
-                            style={{ borderColor: 'var(--border)' }}
-                          >
-                            {group.members.map(item => (
-                              <ActionTakenRow
-                                key={item.node_id}
-                                nodeId={item.node_id}
-                                nodeName={item.node_name}
-                                nodeType={item.node_type}
-                                touchedAt={item.touched_at}
-                                touchSource={item.touch_source}
-                                onClick={() => setSelectedTaskId(item.node_id)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                      {/* Standalones — no grouping, no indentation */}
-                      {standalones.map(item => (
-                        <ActionTakenRow
-                          key={item.node_id}
-                          nodeId={item.node_id}
-                          nodeName={item.node_name}
-                          nodeType={item.node_type}
-                          touchedAt={item.touched_at}
-                          touchSource={item.touch_source}
-                          onClick={() => setSelectedTaskId(item.node_id)}
-                        />
-                      ))}
-                    </>
-                  )
-                })()}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
