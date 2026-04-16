@@ -1,7 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAppStore } from '../store/appState'
 import { TaskCard } from '../components/calendar/TaskCard'
+import { ActionTakenRow } from '../components/calendar/ActionTakenRow'
 import { TaskDetailModal } from '../components/shared/TaskDetailModal'
+import { useDayActions } from '../hooks/useDayActions'
 import type { Database } from '../types/database.types'
 
 type ItemStatus = Database['public']['Enums']['item_status']
@@ -43,6 +45,13 @@ export function CalendarView() {
   const { calendarYear, calendarMonth, calendarSelectedDay } = ui
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [actionsOpen, setActionsOpen] = useState(false)
+
+  const { items: dayActions, loading: dayActionsLoading } = useDayActions(calendarSelectedDay)
+
+  useEffect(() => {
+    setActionsOpen(false)
+  }, [calendarSelectedDay])
 
   // Today's date string
   const today = useMemo(() => {
@@ -301,6 +310,52 @@ export function CalendarView() {
               ))}
             </div>
           )}
+          {/* Actions taken section */}
+          <div className="mt-4">
+            <button
+              onClick={() => setActionsOpen(o => !o)}
+              className="flex items-center justify-between w-full text-left mb-2"
+            >
+              <span className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                Actions taken
+              </span>
+              <span className="flex items-center gap-1.5">
+                {dayActions.length > 0 && (
+                  <span
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: 'var(--surface2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}
+                  >
+                    {dayActions.length}
+                  </span>
+                )}
+                <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                  {actionsOpen ? '▼' : '▶'}
+                </span>
+              </span>
+            </button>
+
+            {actionsOpen && (
+              <div className="flex flex-col gap-1">
+                {dayActionsLoading ? (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading...</p>
+                ) : dayActions.length === 0 ? (
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Nothing recorded for this day.</p>
+                ) : (
+                  dayActions.map(item => (
+                    <ActionTakenRow
+                      key={item.node_id}
+                      nodeId={item.node_id}
+                      nodeName={item.node_name}
+                      nodeType={item.node_type}
+                      touchedAt={item.touched_at}
+                      touchSource={item.touch_source}
+                      onClick={() => setSelectedTaskId(item.node_id)}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
