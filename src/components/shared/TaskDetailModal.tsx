@@ -29,6 +29,7 @@ interface TaskRow {
   parent_id: string | null
   type: string
   pinned: boolean
+  git_pr_url: string | null
 }
 
 interface SubtaskRow {
@@ -426,6 +427,24 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   className="text-sm leading-relaxed whitespace-pre-wrap break-words rounded-lg px-3 py-2">
                   {task.body}
                 </p>
+              </div>
+            )}
+
+            {/* PR Link */}
+            {task.git_pr_url && (
+              <div className="flex flex-col gap-1">
+                <p style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
+                  Pull Request
+                </p>
+                <a
+                  href={task.git_pr_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--accent)' }}
+                  className="text-sm hover:underline"
+                >
+                  View PR
+                </a>
               </div>
             )}
 

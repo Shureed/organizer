@@ -17,13 +17,17 @@ export type Database = {
       action_node: {
         Row: {
           archived: boolean
+          assignee: Database["public"]["Enums"]["assignee_type"] | null
           body: string | null
           bucket: Database["public"]["Enums"]["item_bucket"] | null
+          chain_origin_id: string | null
           completed_at: string | null
           created_at: string
           date: string | null
           embedding: string | null
           embedding_updated_at: string | null
+          git_backed: boolean
+          git_pr_url: string | null
           id: string
           name: string
           parent_id: string | null
@@ -37,13 +41,17 @@ export type Database = {
         }
         Insert: {
           archived?: boolean
+          assignee?: Database["public"]["Enums"]["assignee_type"] | null
           body?: string | null
           bucket?: Database["public"]["Enums"]["item_bucket"] | null
+          chain_origin_id?: string | null
           completed_at?: string | null
           created_at?: string
           date?: string | null
           embedding?: string | null
           embedding_updated_at?: string | null
+          git_backed?: boolean
+          git_pr_url?: string | null
           id?: string
           name: string
           parent_id?: string | null
@@ -57,13 +65,17 @@ export type Database = {
         }
         Update: {
           archived?: boolean
+          assignee?: Database["public"]["Enums"]["assignee_type"] | null
           body?: string | null
           bucket?: Database["public"]["Enums"]["item_bucket"] | null
+          chain_origin_id?: string | null
           completed_at?: string | null
           created_at?: string
           date?: string | null
           embedding?: string | null
           embedding_updated_at?: string | null
+          git_backed?: boolean
+          git_pr_url?: string | null
           id?: string
           name?: string
           parent_id?: string | null
@@ -76,6 +88,48 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "action_node_chain_origin_id_fkey"
+            columns: ["chain_origin_id"]
+            isOneToOne: false
+            referencedRelation: "action_node"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_node_chain_origin_id_fkey"
+            columns: ["chain_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_node_chain_origin_id_fkey"
+            columns: ["chain_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_node_chain_origin_id_fkey"
+            columns: ["chain_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_chain_status"
+            referencedColumns: ["origin_id"]
+          },
+          {
+            foreignKeyName: "action_node_chain_origin_id_fkey"
+            columns: ["chain_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_overdue_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_node_chain_origin_id_fkey"
+            columns: ["chain_origin_id"]
+            isOneToOne: false
+            referencedRelation: "v_todays_tasks"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "action_node_parent_id_fkey"
             columns: ["parent_id"]
@@ -96,6 +150,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_active_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_node_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "v_chain_status"
+            referencedColumns: ["origin_id"]
           },
           {
             foreignKeyName: "action_node_parent_id_fkey"
@@ -128,7 +189,6 @@ export type Database = {
           entity_id: string
           entity_type: Database["public"]["Enums"]["item_type"]
           id: string
-          model: Database["public"]["Enums"]["claude_model"] | null
           parent_comment_id: string | null
           user_id: string
         }
@@ -139,7 +199,6 @@ export type Database = {
           entity_id: string
           entity_type: Database["public"]["Enums"]["item_type"]
           id?: string
-          model?: Database["public"]["Enums"]["claude_model"] | null
           parent_comment_id?: string | null
           user_id?: string
         }
@@ -150,7 +209,6 @@ export type Database = {
           entity_id?: string
           entity_type?: Database["public"]["Enums"]["item_type"]
           id?: string
-          model?: Database["public"]["Enums"]["claude_model"] | null
           parent_comment_id?: string | null
           user_id?: string
         }
@@ -210,42 +268,6 @@ export type Database = {
           source?: Database["public"]["Enums"]["inbox_source"]
           title?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      insights: {
-        Row: {
-          body: string | null
-          entity_id: string | null
-          entity_type: string | null
-          expires_at: string | null
-          generated_at: string | null
-          id: string
-          priority: string
-          title: string
-          type: string
-        }
-        Insert: {
-          body?: string | null
-          entity_id?: string | null
-          entity_type?: string | null
-          expires_at?: string | null
-          generated_at?: string | null
-          id?: string
-          priority?: string
-          title: string
-          type: string
-        }
-        Update: {
-          body?: string | null
-          entity_id?: string | null
-          entity_type?: string | null
-          expires_at?: string | null
-          generated_at?: string | null
-          id?: string
-          priority?: string
-          title?: string
-          type?: string
         }
         Relationships: []
       }
@@ -390,6 +412,30 @@ export type Database = {
         }
         Relationships: []
       }
+      skill_versions: {
+        Row: {
+          deprecated: boolean
+          details: string | null
+          skill_name: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          deprecated?: boolean
+          details?: string | null
+          skill_name: string
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          deprecated?: boolean
+          details?: string | null
+          skill_name?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       spaces: {
         Row: {
           archived: boolean
@@ -466,6 +512,8 @@ export type Database = {
           completed_at: string | null
           created_at: string | null
           date: string | null
+          git_backed: boolean | null
+          git_pr_url: string | null
           id: string | null
           name: string | null
           parent_id: string | null
@@ -506,6 +554,13 @@ export type Database = {
             foreignKeyName: "action_node_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
+            referencedRelation: "v_chain_status"
+            referencedColumns: ["origin_id"]
+          },
+          {
+            foreignKeyName: "action_node_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
             referencedRelation: "v_overdue_tasks"
             referencedColumns: ["id"]
           },
@@ -524,6 +579,16 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_chain_status: {
+        Row: {
+          chain_nodes: string[] | null
+          origin_id: string | null
+          origin_name: string | null
+          origin_status: Database["public"]["Enums"]["item_status"] | null
+          origin_type: Database["public"]["Enums"]["task_type"] | null
+        }
+        Relationships: []
       }
       v_entity_comments: {
         Row: {
@@ -639,6 +704,13 @@ export type Database = {
             foreignKeyName: "action_node_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
+            referencedRelation: "v_chain_status"
+            referencedColumns: ["origin_id"]
+          },
+          {
+            foreignKeyName: "action_node_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
             referencedRelation: "v_overdue_tasks"
             referencedColumns: ["id"]
           },
@@ -665,16 +737,6 @@ export type Database = {
           name: string | null
           parent_space_id: string | null
           path: string | null
-        }
-        Relationships: []
-      }
-      v_chain_status: {
-        Row: {
-          origin_id: string | null
-          origin_name: string | null
-          origin_type: Database["public"]["Enums"]["task_type"] | null
-          origin_status: Database["public"]["Enums"]["item_status"] | null
-          chain_nodes: string[] | null
         }
         Relationships: []
       }
@@ -721,6 +783,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_active_tasks"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "action_node_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "v_chain_status"
+            referencedColumns: ["origin_id"]
           },
           {
             foreignKeyName: "action_node_parent_id_fkey"
@@ -832,7 +901,7 @@ export type Database = {
         Returns: boolean
       }
       run_queries: { Args: { queries: string[] }; Returns: Json }
-      show_limit: { Args: Record<PropertyKey, never>; Returns: number }
+      show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
@@ -844,6 +913,12 @@ export type Database = {
         | "note_added"
         | "task_completed"
         | "linked"
+      assignee_type:
+        | "user"
+        | "sonnet-4-6"
+        | "haiku-4-5"
+        | "opus-4-6"
+        | "opus-4-7"
       claude_model: "haiku" | "sonnet" | "opus"
       inbox_source: "chat" | "voice" | "text" | "email" | "shortcut"
       item_bucket: "needs_doing" | "someday" | "maybe"
@@ -996,6 +1071,13 @@ export const Constants = {
         "note_added",
         "task_completed",
         "linked",
+      ],
+      assignee_type: [
+        "user",
+        "sonnet-4-6",
+        "haiku-4-5",
+        "opus-4-6",
+        "opus-4-7",
       ],
       claude_model: ["haiku", "sonnet", "opus"],
       inbox_source: ["chat", "voice", "text", "email", "shortcut"],
