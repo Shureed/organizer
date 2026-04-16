@@ -29,7 +29,6 @@ function formatTime(isoString: string): string {
 }
 
 export function ActionTakenRow({
-  nodeId,
   nodeName,
   nodeType,
   touchedAt,

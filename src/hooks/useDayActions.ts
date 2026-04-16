@@ -32,14 +32,15 @@ export function useDayActions(day: string | null): UseDayActionsResult {
       setLoading(true)
       setError(null)
       try {
-        const { data, error: rpcError } = await supabase.rpc('fn_day_activity', {
+        // fn_day_activity was added after typegen — cast needed
+        const { data, error: rpcError } = await (supabase.rpc as any)('fn_day_activity', {
           p_day: day,
           p_tz: 'America/New_York',
         })
 
         if (rpcError) throw rpcError
 
-        setItems((data ?? []) as DayActionItem[])
+        setItems((data ?? []) as unknown as DayActionItem[])
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Unknown error'
         setError(message)
