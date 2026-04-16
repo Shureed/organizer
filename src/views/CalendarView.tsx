@@ -42,52 +42,69 @@ function buildChainGroups(dayActions: DayActionItem[]): {
   groups: ChainGroup[]
   standalones: DayActionItem[]
 } {
-  // Which origin IDs have chain descendants in the list?
-  const originIdsWithDescendants = new Set(
-    dayActions.filter(i => i.chain_origin_id).map(i => i.chain_origin_id!)
-  )
+  // Primary group key: project_id (nearest project ancestor) > chain_origin_id > standalone
+  const getGroupKey = (item: DayActionItem): string | null =>
+    item.project_id ?? item.chain_origin_id ?? null
 
-  const chainMembers = dayActions.filter(i => !!i.chain_origin_id)
-  const standalones = dayActions.filter(
-    i => !i.chain_origin_id && !originIdsWithDescendants.has(i.node_id)
-  )
-  const touchedOrigins = dayActions.filter(
-    i => !i.chain_origin_id && originIdsWithDescendants.has(i.node_id)
-  )
+  const buckets = new Map<string, DayActionItem[]>()
+  const standalones: DayActionItem[] = []
 
-  const touchedOriginMap = new Map(touchedOrigins.map(o => [o.node_id, o]))
+  for (const item of dayActions) {
+    const key = getGroupKey(item)
+    if (!key) {
+      standalones.push(item)
+    } else {
+      if (!buckets.has(key)) buckets.set(key, [])
+      buckets.get(key)!.push(item)
+    }
+  }
 
   const groups: ChainGroup[] = []
 
-  for (const originId of originIdsWithDescendants) {
-    const members = chainMembers
-      .filter(m => m.chain_origin_id === originId)
-      .sort((a, b) => b.touched_at.localeCompare(a.touched_at))
+  for (const [groupKey, items] of buckets.entries()) {
+    // The header item is the node whose id IS the group key (the project or origin itself)
+    let headerItem: DayActionItem | null = null
+    const members: DayActionItem[] = []
 
-    const touchedOriginItem = touchedOriginMap.get(originId) ?? null
+    for (const item of items) {
+      if (item.node_id === groupKey) {
+        headerItem = item
+      } else {
+        members.push(item)
+      }
+    }
 
-    // Derive origin name/type from touched origin item or first member's chain fields
-    const originName = touchedOriginItem?.node_name ?? members[0]?.chain_origin_name ?? originId
-    const originType = touchedOriginItem?.node_type ?? 'task'
+    // If only the project/origin was touched (no children in list), render standalone
+    if (members.length === 0) {
+      if (headerItem) standalones.push(headerItem)
+      continue
+    }
 
-    const allTimes = [
-      ...(touchedOriginItem ? [touchedOriginItem.touched_at] : []),
-      ...members.map(m => m.touched_at),
-    ]
+    members.sort((a, b) => b.touched_at.localeCompare(a.touched_at))
+
+    const sample = items[0]
+    const isProjectGroup = !!sample.project_id
+
+    const originName =
+      headerItem?.node_name ??
+      (isProjectGroup ? sample.project_name : sample.chain_origin_name) ??
+      groupKey
+    const originType = headerItem?.node_type ?? (isProjectGroup ? 'project' : 'task')
+
+    const allTimes = items.map(i => i.touched_at)
     const maxTouchedAt = allTimes.sort((a, b) => b.localeCompare(a))[0] ?? ''
 
     groups.push({
-      originId,
+      originId: groupKey,
       originName,
       originType,
-      isTouched: !!touchedOriginItem,
-      touchedOriginItem,
+      isTouched: !!headerItem,
+      touchedOriginItem: headerItem,
       members,
       maxTouchedAt,
     })
   }
 
-  // Sort groups by most recent touched_at DESC
   groups.sort((a, b) => b.maxTouchedAt.localeCompare(a.maxTouchedAt))
 
   return { groups, standalones }

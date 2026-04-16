@@ -9,6 +9,8 @@ export interface DayActionItem {
   touch_source: 'updated' | 'comment' | 'note'
   chain_origin_id: string | null
   chain_origin_name: string | null
+  project_id: string | null
+  project_name: string | null
 }
 
 export interface UseDayActionsResult {
