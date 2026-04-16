@@ -77,7 +77,7 @@ const initialUI: AppUI = {
   currentView: 'today',
   calendarYear: new Date().getFullYear(),
   calendarMonth: new Date().getMonth(),
-  calendarSelectedDay: new Date().toISOString().slice(0, 10),
+  calendarSelectedDay: new Date().toLocaleDateString('en-CA'),
   issuesFilterType: '',
   issuesFilterPriority: '',
   showClosedSearch: false,
