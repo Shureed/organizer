@@ -7,6 +7,8 @@ export interface DayActionItem {
   node_type: string
   touched_at: string
   touch_source: 'updated' | 'comment' | 'note'
+  chain_origin_id: string | null
+  chain_origin_name: string | null
 }
 
 export interface UseDayActionsResult {

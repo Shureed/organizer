@@ -3,7 +3,9 @@ import { useAppStore } from '../store/appState'
 import { TaskCard } from '../components/calendar/TaskCard'
 import { ActionTakenRow } from '../components/calendar/ActionTakenRow'
 import { TaskDetailModal } from '../components/shared/TaskDetailModal'
+import { TypeBadge } from '../components/shared/TypeBadge'
 import { useDayActions } from '../hooks/useDayActions'
+import type { DayActionItem } from '../hooks/useDayActions'
 import type { Database } from '../types/database.types'
 
 type ItemStatus = Database['public']['Enums']['item_status']
@@ -25,6 +27,71 @@ const MONTHS = [
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const LONG_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+interface ChainGroup {
+  originId: string
+  originName: string
+  originType: string
+  isTouched: boolean // true if the origin node itself appears in dayActions
+  touchedOriginItem: DayActionItem | null
+  members: DayActionItem[]
+  maxTouchedAt: string
+}
+
+function buildChainGroups(dayActions: DayActionItem[]): {
+  groups: ChainGroup[]
+  standalones: DayActionItem[]
+} {
+  // Which origin IDs have chain descendants in the list?
+  const originIdsWithDescendants = new Set(
+    dayActions.filter(i => i.chain_origin_id).map(i => i.chain_origin_id!)
+  )
+
+  const chainMembers = dayActions.filter(i => !!i.chain_origin_id)
+  const standalones = dayActions.filter(
+    i => !i.chain_origin_id && !originIdsWithDescendants.has(i.node_id)
+  )
+  const touchedOrigins = dayActions.filter(
+    i => !i.chain_origin_id && originIdsWithDescendants.has(i.node_id)
+  )
+
+  const touchedOriginMap = new Map(touchedOrigins.map(o => [o.node_id, o]))
+
+  const groups: ChainGroup[] = []
+
+  for (const originId of originIdsWithDescendants) {
+    const members = chainMembers
+      .filter(m => m.chain_origin_id === originId)
+      .sort((a, b) => b.touched_at.localeCompare(a.touched_at))
+
+    const touchedOriginItem = touchedOriginMap.get(originId) ?? null
+
+    // Derive origin name/type from touched origin item or first member's chain fields
+    const originName = touchedOriginItem?.node_name ?? members[0]?.chain_origin_name ?? originId
+    const originType = touchedOriginItem?.node_type ?? 'task'
+
+    const allTimes = [
+      ...(touchedOriginItem ? [touchedOriginItem.touched_at] : []),
+      ...members.map(m => m.touched_at),
+    ]
+    const maxTouchedAt = allTimes.sort((a, b) => b.localeCompare(a))[0] ?? ''
+
+    groups.push({
+      originId,
+      originName,
+      originType,
+      isTouched: !!touchedOriginItem,
+      touchedOriginItem,
+      members,
+      maxTouchedAt,
+    })
+  }
+
+  // Sort groups by most recent touched_at DESC
+  groups.sort((a, b) => b.maxTouchedAt.localeCompare(a.maxTouchedAt))
+
+  return { groups, standalones }
+}
 
 function formatSelectedDay(dateStr: string): string {
   // dateStr = 'YYYY-MM-DD'
@@ -340,19 +407,74 @@ export function CalendarView() {
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Loading...</p>
                 ) : dayActions.length === 0 ? (
                   <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Nothing recorded for this day.</p>
-                ) : (
-                  dayActions.map(item => (
-                    <ActionTakenRow
-                      key={item.node_id}
-                      nodeId={item.node_id}
-                      nodeName={item.node_name}
-                      nodeType={item.node_type}
-                      touchedAt={item.touched_at}
-                      touchSource={item.touch_source}
-                      onClick={() => setSelectedTaskId(item.node_id)}
-                    />
-                  ))
-                )}
+                ) : (() => {
+                  const { groups, standalones } = buildChainGroups(dayActions)
+                  return (
+                    <>
+                      {groups.map(group => (
+                        <div key={group.originId} className="flex flex-col gap-1">
+                          {/* Group header */}
+                          {group.isTouched ? (
+                            // Active header — origin was touched today, clickable
+                            <button
+                              onClick={() => setSelectedTaskId(group.originId)}
+                              className="w-full text-left flex items-center gap-1.5 px-1 py-1 rounded transition-colors hover:bg-[var(--surface2)]"
+                            >
+                              <span className="flex-1 text-xs font-medium truncate" style={{ color: 'var(--text)' }}>
+                                {group.originName || '(Untitled)'}
+                              </span>
+                              <div className="shrink-0">
+                                <TypeBadge type={group.originType} />
+                              </div>
+                            </button>
+                          ) : (
+                            // Muted header — origin not touched today, context only
+                            <div className="flex items-center gap-1.5 px-1 py-1">
+                              <span
+                                className="flex-1 text-xs truncate italic"
+                                style={{ color: 'var(--text-muted)', fontWeight: 400 }}
+                              >
+                                {group.originName || '(Untitled)'}
+                              </span>
+                              <div className="shrink-0">
+                                <TypeBadge type={group.originType} />
+                              </div>
+                            </div>
+                          )}
+                          {/* Member rows with left-border indent */}
+                          <div
+                            className="flex flex-col gap-1 pl-3 border-l"
+                            style={{ borderColor: 'var(--border)' }}
+                          >
+                            {group.members.map(item => (
+                              <ActionTakenRow
+                                key={item.node_id}
+                                nodeId={item.node_id}
+                                nodeName={item.node_name}
+                                nodeType={item.node_type}
+                                touchedAt={item.touched_at}
+                                touchSource={item.touch_source}
+                                onClick={() => setSelectedTaskId(item.node_id)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {/* Standalones — no grouping, no indentation */}
+                      {standalones.map(item => (
+                        <ActionTakenRow
+                          key={item.node_id}
+                          nodeId={item.node_id}
+                          nodeName={item.node_name}
+                          nodeType={item.node_type}
+                          touchedAt={item.touched_at}
+                          touchSource={item.touch_source}
+                          onClick={() => setSelectedTaskId(item.node_id)}
+                        />
+                      ))}
+                    </>
+                  )
+                })()}
               </div>
             )}
           </div>
