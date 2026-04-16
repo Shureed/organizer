@@ -68,7 +68,8 @@ export function useDataLoader() {
         .select('*')
         .eq('pinned', true)
         .eq('status', 'done')
-        .eq('archived', false),
+        .eq('archived', false)
+        .order('created_at', { ascending: true }),
 
       supabase
         .from('action_node')
@@ -99,7 +100,8 @@ export function useDataLoader() {
         supabase
           .from('v_active_tasks')
           .select('*')
-          .order('date', { ascending: true, nullsFirst: false }),
+          .order('date', { ascending: true, nullsFirst: false })
+          .order('created_at', { ascending: true }),
 
         supabase
           .from('v_active_projects')
@@ -118,7 +120,8 @@ export function useDataLoader() {
           .select('*')
           .eq('pinned', true)
           .eq('status', 'done')
-          .eq('archived', false),
+          .eq('archived', false)
+          .order('created_at', { ascending: true }),
 
         supabase
           .from('action_node')
