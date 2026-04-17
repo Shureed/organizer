@@ -2,7 +2,7 @@
   "name": "Secretary",
   "short_name": "Secretary",
   "display": "standalone",
-  "start_url": "/",
+  "start_url": "/organizer/",
   "background_color": "#0a0a0a",
   "theme_color": "#0a0a0a",
   "icons": [
