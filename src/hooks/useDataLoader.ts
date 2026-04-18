@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppStore } from '../store/appState'
+import type { ChainNode } from '../store/appState'
 
 // Module-scoped dedup map
 const lastFetchedAt = new Map<string, number>()
@@ -125,14 +126,42 @@ export async function loadRecentItems(force = false): Promise<void> {
   lastFetchedAt.set(key, Date.now())
 }
 
+async function loadChainNodes(originIds: string[], force = false): Promise<void> {
+  const key = 'chainNodes'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+  if (originIds.length === 0) return
+
+  const { data, error } = await supabase
+    .from('action_node')
+    .select('id, name, type, status, chain_origin_id')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .in('chain_origin_id' as any, originIds)
+    .eq('archived', false)
+    .order('created_at', { ascending: true })
+
+  if (error || !data) return
+
+  const grouped: Record<string, ChainNode[]> = {}
+  for (const row of data) {
+    const k = (row as ChainNode).chain_origin_id
+    if (!k) continue
+    ;(grouped[k] ||= []).push(row as ChainNode)
+  }
+  useAppStore.getState().setData({ chainNodesByOrigin: grouped })
+  lastFetchedAt.set(key, Date.now())
+}
+
 // ── Per-view composers ──────────────────────────────────────────────────────────
 // Stable module-level exports. Slice loaders dedup within 200ms so shell seed +
 // view loader co-firing collapses to one request per slice.
 
 export const loadShellSeed = (): Promise<void> => loadTasks()
 
-export const loadTodayView = (): Promise<unknown> =>
-  Promise.all([loadTasks(), loadProjects(), loadChainStatus(), loadPinnedDoneTasks()])
+export const loadTodayView = async (): Promise<void> => {
+  await Promise.all([loadTasks(), loadProjects(), loadChainStatus(), loadPinnedDoneTasks()])
+  const ids = useAppStore.getState().data.chainStatus.map(c => c.origin_id).filter(Boolean) as string[]
+  if (ids.length) await loadChainNodes(ids)
+}
 
 export const loadCalendarView = (): Promise<unknown> =>
   Promise.all([loadTasks(), loadClosedTasks()])
@@ -147,14 +176,18 @@ export const loadInboxView = (): Promise<void> => loadInbox()
 // Provides forced-refresh variants and the loadAll escape hatch for mutations.
 export function useDataLoader() {
   // Recomposed refresh functions (force = true bypasses dedup)
-  const refreshTasks = () => Promise.all([
-    loadTasks(true),
-    loadProjects(true),
-    loadClosedTasks(true),
-    loadPinnedDoneTasks(true),
-    loadRecentItems(true),
-    loadChainStatus(true),
-  ])
+  const refreshTasks = async () => {
+    await Promise.all([
+      loadTasks(true),
+      loadProjects(true),
+      loadClosedTasks(true),
+      loadPinnedDoneTasks(true),
+      loadRecentItems(true),
+      loadChainStatus(true),
+    ])
+    const ids = useAppStore.getState().data.chainStatus.map(c => c.origin_id).filter(Boolean) as string[]
+    if (ids.length) await loadChainNodes(ids, true)
+  }
 
   const refreshInbox = () => loadInbox(true)
 
