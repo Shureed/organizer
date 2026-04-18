@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, lazy, Suspense } from 'react'
 import {
   Home,
   CalendarDays,
@@ -14,14 +14,15 @@ import { useAppStore } from './store/appState'
 import { buildSearchIndex, useSearch } from './hooks/useSearch'
 import { LoginPage } from './components/LoginPage'
 import { LoadingSpinner } from './components/LoadingSpinner'
-import { TodayView } from './views/TodayView'
-import { CalendarView } from './views/CalendarView'
-import { RecentsView } from './views/RecentsView'
-import { IssuesView } from './views/IssuesView'
-import { InboxView } from './views/InboxView'
 import { TaskDetailModal } from './components/shared/TaskDetailModal'
 import { InboxDetailModal } from './components/inbox/InboxDetailModal'
 import './App.css'
+
+const TodayView = lazy(() => import('./views/TodayView').then(m => ({ default: m.TodayView })))
+const CalendarView = lazy(() => import('./views/CalendarView').then(m => ({ default: m.CalendarView })))
+const RecentsView = lazy(() => import('./views/RecentsView').then(m => ({ default: m.RecentsView })))
+const IssuesView = lazy(() => import('./views/IssuesView').then(m => ({ default: m.IssuesView })))
+const InboxView = lazy(() => import('./views/InboxView').then(m => ({ default: m.InboxView })))
 
 type View = 'today' | 'calendar' | 'recents' | 'issues' | 'inbox'
 
@@ -195,11 +196,13 @@ function MainApp() {
 
       {/* View content */}
       <main className="flex-1 overflow-y-auto" style={{ paddingBottom: '64px' }}>
-        {currentView === 'today' && <TodayView />}
-        {currentView === 'calendar' && <CalendarView />}
-        {currentView === 'recents' && <RecentsView />}
-        {currentView === 'issues' && <IssuesView />}
-        {currentView === 'inbox' && <InboxView />}
+        <Suspense fallback={<LoadingSpinner />}>
+          {currentView === 'today' && <TodayView />}
+          {currentView === 'calendar' && <CalendarView />}
+          {currentView === 'recents' && <RecentsView />}
+          {currentView === 'issues' && <IssuesView />}
+          {currentView === 'inbox' && <InboxView />}
+        </Suspense>
       </main>
 
       {/* Bottom tab bar */}
