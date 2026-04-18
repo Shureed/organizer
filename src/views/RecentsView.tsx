@@ -1,18 +1,9 @@
-import { useState } from 'react'
 import { useAppStore } from '../store/appState'
 import { RecentItem } from '../components/recents/RecentItem'
-import { TaskDetailModal } from '../components/shared/TaskDetailModal'
-import { useDataLoader } from '../hooks/useDataLoader'
 
 export function RecentsView() {
   const recentItems = useAppStore((s) => s.data.recentItems)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const { refreshTasks } = useDataLoader()
-
-  const handleClose = () => {
-    setSelectedId(null)
-    refreshTasks()
-  }
+  const patchUI = useAppStore((s) => s.patchUI)
 
   return (
     <div
@@ -57,7 +48,7 @@ export function RecentsView() {
               <RecentItem
                 key={item.id}
                 item={item}
-                onOpen={setSelectedId}
+                onOpen={(id) => patchUI({ openTaskId: id })}
                 isLast={idx === recentItems.length - 1}
               />
             ))}
@@ -65,7 +56,6 @@ export function RecentsView() {
         )}
       </div>
 
-      <TaskDetailModal taskId={selectedId} onClose={handleClose} />
     </div>
   )
 }

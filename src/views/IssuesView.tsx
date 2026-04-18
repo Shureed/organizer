@@ -1,7 +1,5 @@
-import { useState } from 'react'
 import { useAppStore } from '../store/appState'
 import { IssueCard } from '../components/issues/IssueCard'
-import { TaskDetailModal } from '../components/shared/TaskDetailModal'
 import { ScrollArea } from '../components/ui/scroll-area'
 
 const ISSUE_TYPES = ['bug', 'improvement', 'feature', 'idea', 'thought', 'context_gathering', 'plan'] as const
@@ -15,7 +13,6 @@ const PRIORITY_RANK: Record<string, number> = {
 
 export function IssuesView() {
   const { data, ui, patchUI } = useAppStore()
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   // Filter to issue types only
   const issues = data.tasks.filter((t) => t.type && !TASK_TYPES_EXCLUDED.has(t.type))
@@ -114,20 +111,13 @@ export function IssuesView() {
               <IssueCard
                 key={task.id}
                 task={task}
-                onClick={() => task.id && setSelectedTaskId(task.id)}
+                onClick={() => task.id && patchUI({ openTaskId: task.id })}
               />
             ))
           )}
         </div>
       </ScrollArea>
 
-      {/* Task Detail Modal */}
-      {selectedTaskId && (
-        <TaskDetailModal
-          taskId={selectedTaskId}
-          onClose={() => setSelectedTaskId(null)}
-        />
-      )}
     </div>
   )
 }

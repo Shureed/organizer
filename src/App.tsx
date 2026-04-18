@@ -139,14 +139,22 @@ function SearchBar({ onSelect }: SearchBarProps) {
 // ── Main App ───────────────────────────────────────────────────────────────────
 function MainApp() {
   const currentView = useAppStore((s) => s.ui.currentView)
+  const openTaskId = useAppStore((s) => s.ui.openTaskId)
   const openInboxId = useAppStore((s) => s.ui.openInboxId)
   const patchUI = useAppStore((s) => s.patchUI)
   const data = useAppStore((s) => s.data)
-  const { loadAll } = useDataLoader()
+  const { loadAll, refreshTasks } = useDataLoader()
   useAutoRefresh(30000)
 
-  const [searchSelectedId, setSearchSelectedId] = useState<string | null>(null)
-  const [searchSelectedType, setSearchSelectedType] = useState<string | null>(null)
+  // Preserve refreshTasks-on-close behaviour (was Today-only; now applies to all views)
+  const prevOpenTaskIdRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (prevOpenTaskIdRef.current && !openTaskId) {
+      refreshTasks()
+    }
+    prevOpenTaskIdRef.current = openTaskId
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openTaskId])
 
   // Initial load
   useEffect(() => {
@@ -165,14 +173,8 @@ function MainApp() {
     if (type === 'inbox') {
       patchUI({ openInboxId: id })
     } else {
-      setSearchSelectedId(id)
-      setSearchSelectedType(type)
+      patchUI({ openTaskId: id })
     }
-  }
-
-  const handleSearchModalClose = () => {
-    setSearchSelectedId(null)
-    setSearchSelectedType(null)
   }
 
   return (
@@ -221,12 +223,8 @@ function MainApp() {
         })}
       </nav>
 
-      {/* Search result modals — rendered at top level, no tab switch */}
-      {searchSelectedType === 'task' && (
-        <TaskDetailModal taskId={searchSelectedId} onClose={handleSearchModalClose} />
-      )}
-
-      {/* Top-level inbox detail modal */}
+      {/* Single top-level modals driven by store state */}
+      <TaskDetailModal taskId={openTaskId} onClose={() => patchUI({ openTaskId: null })} />
       <InboxDetailModal itemId={openInboxId} onClose={() => patchUI({ openInboxId: null })} />
     </div>
   )
