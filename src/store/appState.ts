@@ -32,8 +32,6 @@ export interface AppData {
   projects: ActiveProject[]
   closedTasks: ActionNode[]
   closedProjects: ActionNode[]
-  spaces: Space[]
-  spaceTree: SpaceTree[]
   inbox: InboxItem[]
   chainStatus: ChainStatusItem[]
   pinnedDoneTasks: ActionNode[]
@@ -67,8 +65,6 @@ const initialData: AppData = {
   projects: [],
   closedTasks: [],
   closedProjects: [],
-  spaces: [],
-  spaceTree: [],
   inbox: [],
   chainStatus: [],
   pinnedDoneTasks: [],
