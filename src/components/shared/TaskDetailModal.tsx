@@ -1,13 +1,11 @@
 import { useRef } from 'react'
 import { useTaskDetail } from '../../hooks/useTaskDetail'
 import { StatusChip } from './StatusChip'
-import { PinIcon } from './PinIcon'
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
 } from '../ui/dialog'
+import { TaskDetailHeader } from '../task-detail/TaskDetailHeader'
 import { CommentSection } from './CommentSection'
 import type { Database } from '../../types/database.types'
 
@@ -35,7 +33,6 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     parentNode,
     loading,
     saving,
-    pinning,
     error,
     ui,
     actions,
@@ -65,31 +62,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
         className="max-w-lg w-full max-h-[85vh] overflow-y-auto overflow-x-hidden"
         style={{ backgroundColor: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)' }}
       >
-        <DialogHeader>
-          <DialogTitle style={{ color: 'var(--text)' }} className="text-base font-semibold pr-6">
-            {loading ? 'Loading...' : (task?.name ?? 'Task')}
-          </DialogTitle>
-          {!loading && task && (
-            <div className="flex items-center gap-2 mt-1">
-              <span
-                style={{ backgroundColor: 'var(--surface2)', color: 'var(--accent)', border: '1px solid var(--border)' }}
-                className="text-[10px] rounded px-1.5 py-0.5 font-medium"
-              >
-                {task.type}
-              </span>
-              <button
-                onClick={actions.handleTogglePin}
-                disabled={pinning}
-                style={{ color: task.pinned ? 'var(--accent)' : 'var(--text-muted)' }}
-                className="hover:text-[var(--accent)] transition-colors disabled:opacity-50"
-                aria-label={task.pinned ? 'Unpin from today' : 'Pin to today'}
-                title={task.pinned ? 'Unpin from today' : 'Pin to today'}
-              >
-                <PinIcon filled={task.pinned} />
-              </button>
-            </div>
-          )}
-        </DialogHeader>
+        <TaskDetailHeader taskId={taskId} />
 
         {error && (
           <p style={{ color: 'var(--red)' }} className="text-xs">{error}</p>
