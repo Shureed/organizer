@@ -12,17 +12,17 @@ import { useAuth } from './hooks/useAuth'
 import { useAutoRefresh, useDataLoader } from './hooks/useDataLoader'
 import { useAppStore } from './store/appState'
 import { buildSearchIndex, useSearch } from './hooks/useSearch'
-import { LoginPage } from './components/LoginPage'
 import { LoadingSpinner } from './components/LoadingSpinner'
-import { TaskDetailModal } from './components/shared/TaskDetailModal'
-import { InboxDetailModal } from './components/inbox/InboxDetailModal'
 import './App.css'
 
+const LoginPage = lazy(() => import('./components/LoginPage').then(m => ({ default: m.LoginPage })))
 const TodayView = lazy(() => import('./views/TodayView').then(m => ({ default: m.TodayView })))
 const CalendarView = lazy(() => import('./views/CalendarView').then(m => ({ default: m.CalendarView })))
 const RecentsView = lazy(() => import('./views/RecentsView').then(m => ({ default: m.RecentsView })))
 const IssuesView = lazy(() => import('./views/IssuesView').then(m => ({ default: m.IssuesView })))
 const InboxView = lazy(() => import('./views/InboxView').then(m => ({ default: m.InboxView })))
+const TaskDetailModal = lazy(() => import('./components/shared/TaskDetailModal').then(m => ({ default: m.TaskDetailModal })))
+const InboxDetailModal = lazy(() => import('./components/inbox/InboxDetailModal').then(m => ({ default: m.InboxDetailModal })))
 
 type View = 'today' | 'calendar' | 'recents' | 'issues' | 'inbox'
 
@@ -227,8 +227,16 @@ function MainApp() {
       </nav>
 
       {/* Single top-level modals driven by store state */}
-      <TaskDetailModal taskId={openTaskId} onClose={() => patchUI({ openTaskId: null })} />
-      <InboxDetailModal itemId={openInboxId} onClose={() => patchUI({ openInboxId: null })} />
+      {openTaskId && (
+        <Suspense fallback={null}>
+          <TaskDetailModal taskId={openTaskId} onClose={() => patchUI({ openTaskId: null })} />
+        </Suspense>
+      )}
+      {openInboxId && (
+        <Suspense fallback={null}>
+          <InboxDetailModal itemId={openInboxId} onClose={() => patchUI({ openInboxId: null })} />
+        </Suspense>
+      )}
     </div>
   )
 }
@@ -237,6 +245,10 @@ export default function App() {
   const { session, loading } = useAuth()
 
   if (loading) return <LoadingSpinner />
-  if (!session) return <LoginPage />
+  if (!session) return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <LoginPage />
+    </Suspense>
+  )
   return <MainApp />
 }
