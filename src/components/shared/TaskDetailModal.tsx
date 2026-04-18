@@ -1,7 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { supabase } from '../../lib/supabase'
-import { useMutations } from '../../hooks/useMutations'
-import { useDataLoader } from '../../hooks/useDataLoader'
+import { useRef } from 'react'
+import { useTaskDetail } from '../../hooks/useTaskDetail'
 import { StatusChip } from './StatusChip'
 import { PinIcon } from './PinIcon'
 import {
@@ -11,41 +9,11 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { CommentSection } from './CommentSection'
-import type { CommentRow } from './CommentSection'
 import type { Database } from '../../types/database.types'
 
 type ItemStatus = Database['public']['Enums']['item_status']
 type ItemBucket = Database['public']['Enums']['item_bucket']
 type PriorityLevel = Database['public']['Enums']['priority_level']
-
-interface TaskRow {
-  id: string
-  name: string
-  status: ItemStatus | null
-  date: string | null
-  priority: PriorityLevel | null
-  bucket: ItemBucket | null
-  body: string | null
-  parent_id: string | null
-  type: string
-  pinned: boolean
-  git_pr_url: string | null
-}
-
-interface SubtaskRow {
-  id: string
-  name: string
-  status: ItemStatus | null
-}
-
-interface RelatedItem {
-  link_id: string
-  entity_type: string
-  entity_id: string
-  direction: string
-  name: string
-  display_type: string
-}
 
 interface TaskDetailModalProps {
   taskId: string | null
@@ -57,196 +25,39 @@ const PRIORITY_OPTIONS: PriorityLevel[] = ['high', 'medium', 'low']
 const BUCKET_OPTIONS: ItemBucket[] = ['needs_doing', 'someday', 'maybe']
 
 export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
-  const [task, setTask] = useState<TaskRow | null>(null)
-  const [subtasks, setSubtasks] = useState<SubtaskRow[]>([])
-  const [comments, setComments] = useState<CommentRow[]>([])
-  const [related, setRelated] = useState<RelatedItem[]>([])
-  const [relatedOpen, setRelatedOpen] = useState(false)
-  const [parentNode, setParentNode] = useState<{ id: string; name: string; type: string } | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [pinning, setPinning] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // Form state
-  const [status, setStatus] = useState<ItemStatus>('open')
-  const [date, setDate] = useState('')
-  const [priority, setPriority] = useState('')
-  const [bucket, setBucket] = useState('')
-
-  // Comment state
-  const [commentBody, setCommentBody] = useState('')
-  const [submittingComment, setSubmittingComment] = useState(false)
-
-  // Navigation stack for subtask drill-in
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(taskId)
-
-  const { changeTaskStatus, postComment, toggleTaskPin } = useMutations()
-  const { refreshTasks } = useDataLoader()
   const commentsBottomRef = useRef<HTMLDivElement>(null)
 
-  const fetchTask = useCallback(async (id: string) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const [taskRes, subtasksRes, commentsRes] = await Promise.all([
-        supabase.from('action_node').select('*').eq('id', id).single(),
-        supabase
-          .from('action_node')
-          .select('id, name, status')
-          .eq('parent_id', id)
-          .eq('archived', false)
-          .order('status', { ascending: true })
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('comments')
-          .select('id, actor, body, created_at')
-          .eq('entity_type', 'task')
-          .eq('entity_id', id)
-          .order('created_at', { ascending: true }),
-      ])
+  const {
+    task,
+    subtasks,
+    comments,
+    related,
+    parentNode,
+    loading,
+    saving,
+    pinning,
+    error,
+    ui,
+    actions,
+  } = useTaskDetail(taskId)
 
-      if (taskRes.error) throw taskRes.error
-      const t = taskRes.data as TaskRow
-      setTask(t)
-      setStatus(t.status ?? 'open')
-      setDate(t.date ?? '')
-      setPriority(t.priority ?? '')
-      setBucket(t.bucket ?? '')
-      setSubtasks((subtasksRes.data ?? []) as SubtaskRow[])
-      setComments((commentsRes.data ?? []) as CommentRow[])
-
-      // Load parent node
-      if (t.parent_id) {
-        const { data: parentData } = await supabase
-          .from('action_node')
-          .select('id, name, type')
-          .eq('id', t.parent_id)
-          .single()
-        setParentNode(parentData ? { id: parentData.id, name: parentData.name ?? '', type: parentData.type ?? '' } : null)
-      } else {
-        setParentNode(null)
-      }
-
-      // Load related items via fn_related
-      // All action_node items are stored as item_type 'task' in related_items
-      const { data: rawRelated, error: relatedErr } = await supabase.rpc('fn_related', {
-        p_type: 'task' as any,
-        p_id: id,
-      })
-      if (relatedErr) console.error('fn_related error:', relatedErr)
-      const relatedRows = (rawRelated ?? []) as Array<{
-        link_id: string; entity_type: string; entity_id: string; direction: string
-      }>
-      if (relatedRows.length > 0) {
-        // All action_node items (tasks, projects, bugs, etc.) are stored as entity_type='task'
-        // Fetch actual name + type from action_node for all of them
-        const nodeIds = relatedRows.map(r => r.entity_id)
-        const nameMap: Record<string, string> = {}
-        const typeMap: Record<string, string> = {}
-        const { data: nameData } = await supabase
-          .from('action_node')
-          .select('id, name, type')
-          .in('id', nodeIds)
-        ;(nameData ?? []).forEach(n => {
-          nameMap[n.id] = n.name ?? n.id
-          typeMap[n.id] = n.type ?? 'task'
-        })
-        // Inbox items live in the inbox table, not action_node — fetch their titles separately
-        const inboxIds = relatedRows.filter(r => r.entity_type === 'inbox').map(r => r.entity_id)
-        if (inboxIds.length > 0) {
-          const { data: inboxData } = await supabase
-            .from('inbox')
-            .select('id, title, body')
-            .in('id', inboxIds)
-          ;(inboxData ?? []).forEach(i => {
-            nameMap[i.id] = i.title || (i.body?.slice(0, 50) ?? i.id)
-            typeMap[i.id] = 'inbox'
-          })
-        }
-        setRelated(relatedRows.map(r => ({
-          ...r,
-          name: nameMap[r.entity_id] ?? r.entity_type,
-          display_type: typeMap[r.entity_id] ?? r.entity_type,
-        })))
-      } else {
-        setRelated([])
-      }
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load task')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    setActiveTaskId(taskId)
-  }, [taskId])
-
-  useEffect(() => {
-    if (activeTaskId) {
-      fetchTask(activeTaskId)
-    }
-  }, [activeTaskId, fetchTask])
-
-  const handleUpdate = async () => {
-    if (!activeTaskId) return
-    setSaving(true)
-    try {
-      await changeTaskStatus(
-        activeTaskId,
-        status,
-        (bucket || null) as ItemBucket | null,
-        date || null,
-        (priority || null) as PriorityLevel | null
-      )
-      await refreshTasks()
-      onClose()
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Update failed')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleCommentSubmit = async () => {
-    if (!activeTaskId || !commentBody.trim()) return
-    const body = commentBody.trim()
-    const optimistic: CommentRow = {
-      id: 'pending',
-      actor: 'shureed',
-      body,
-      created_at: new Date().toISOString(),
-      pending: true,
-    }
-    setComments(prev => [...prev, optimistic])
-    setCommentBody('')
-    setSubmittingComment(true)
-    try {
-      await postComment({
-        entity_type: 'task',
-        entity_id: activeTaskId,
-        actor: 'shureed',
-        body,
-      })
-      const { data } = await supabase
-        .from('comments')
-        .select('id, actor, body, created_at')
-        .eq('entity_type', 'task')
-        .eq('entity_id', activeTaskId)
-        .order('created_at', { ascending: true })
-      setComments((data ?? []) as CommentRow[])
-      commentsBottomRef.current?.scrollIntoView()
-    } catch (e: unknown) {
-      setComments(prev => prev.filter(c => c.id !== 'pending'))
-      setCommentBody(body)
-      setError(e instanceof Error ? e.message : 'Failed to post comment')
-    } finally {
-      setSubmittingComment(false)
-    }
-  }
-
-  const isDateSet = !!date
+  const {
+    status,
+    date,
+    priority,
+    bucket,
+    commentBody,
+    submittingComment,
+    relatedOpen,
+    isDateSet,
+    setStatus,
+    setDate,
+    setPriority,
+    setBucket,
+    setCommentBody,
+    setRelatedOpen,
+    setActiveTaskId,
+  } = ui
 
   return (
     <Dialog open={!!taskId} onOpenChange={(open) => { if (!open) onClose() }}>
@@ -267,16 +78,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                 {task.type}
               </span>
               <button
-                onClick={async () => {
-                  if (!activeTaskId || pinning) return
-                  setPinning(true)
-                  try {
-                    await toggleTaskPin(activeTaskId, !task.pinned)
-                    await fetchTask(activeTaskId)
-                  } finally {
-                    setPinning(false)
-                  }
-                }}
+                onClick={actions.handleTogglePin}
                 disabled={pinning}
                 style={{ color: task.pinned ? 'var(--accent)' : 'var(--text-muted)' }}
                 className="hover:text-[var(--accent)] transition-colors disabled:opacity-50"
@@ -406,7 +208,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
 
             {/* Update button */}
             <button
-              onClick={handleUpdate}
+              onClick={() => actions.handleUpdate(onClose)}
               disabled={saving}
               style={{
                 backgroundColor: 'var(--accent)',
@@ -542,7 +344,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               comments={comments}
               value={commentBody}
               onChange={setCommentBody}
-              onSubmit={handleCommentSubmit}
+              onSubmit={() => actions.handleCommentSubmit(() => commentsBottomRef.current?.scrollIntoView())}
               submitting={submittingComment}
               bottomRef={commentsBottomRef}
             />
