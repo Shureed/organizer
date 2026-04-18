@@ -1,9 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/appState'
-import { useDataLoader } from '../hooks/useDataLoader'
 import { useMutations } from '../hooks/useMutations'
 import { TaskCard } from '../components/shared/TaskCard'
-import { TaskDetailModal } from '../components/shared/TaskDetailModal'
 import { TypeBadge } from '../components/shared/TypeBadge'
 import { StatusChip } from '../components/shared/StatusChip'
 import { supabase } from '../lib/supabase'
@@ -307,9 +305,7 @@ function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTa
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export function TodayView() {
-  const { data } = useAppStore()
-  const { refreshTasks } = useDataLoader()
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const { data, patchUI } = useAppStore()
   const [showAddTask, setShowAddTask] = useState(false)
 
   const today = getTodayStr()
@@ -336,15 +332,6 @@ export function TodayView() {
     return true
   })
 
-  const handleTaskClick = (id: string | null) => {
-    if (id) setSelectedTaskId(id)
-  }
-
-  const handleModalClose = () => {
-    setSelectedTaskId(null)
-    refreshTasks()
-  }
-
   return (
     <div
       className="flex flex-col gap-5 px-4 pt-5"
@@ -364,7 +351,7 @@ export function TodayView() {
               task={task}
               showProject={true}
               dimmed={task.status === 'done'}
-              onClick={() => handleTaskClick(task.id ?? null)}
+              onClick={() => task.id && patchUI({ openTaskId: task.id })}
             />
           ))}
         </CollapsibleSection>
@@ -384,7 +371,7 @@ export function TodayView() {
               task={task}
               showDate={true}
               showProject={true}
-              onClick={() => handleTaskClick(task.id)}
+              onClick={() => task.id && patchUI({ openTaskId: task.id })}
             />
           ))}
         </CollapsibleSection>
@@ -406,7 +393,7 @@ export function TodayView() {
               key={task.id}
               task={task}
               showProject={true}
-              onClick={() => handleTaskClick(task.id)}
+              onClick={() => task.id && patchUI({ openTaskId: task.id })}
             />
           ))
         )}
@@ -418,7 +405,7 @@ export function TodayView() {
           <p style={{ color: 'var(--text)' }} className="text-sm font-semibold">Active Chains</p>
           <div className="flex flex-col gap-2">
             {data.chainStatus.map((item) => (
-              <ChainStatusCard key={item.origin_id} item={item} onOpenTask={setSelectedTaskId} />
+              <ChainStatusCard key={item.origin_id} item={item} onOpenTask={(id) => patchUI({ openTaskId: id })} />
             ))}
           </div>
         </div>
@@ -437,12 +424,6 @@ export function TodayView() {
       >
         +
       </button>
-
-      {/* Task detail modal */}
-      <TaskDetailModal
-        taskId={selectedTaskId}
-        onClose={handleModalClose}
-      />
 
       {/* Add task dialog */}
       {showAddTask && (

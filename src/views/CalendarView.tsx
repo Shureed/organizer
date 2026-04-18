@@ -1,7 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { useAppStore } from '../store/appState'
 import { TaskCard } from '../components/calendar/TaskCard'
-import { TaskDetailModal } from '../components/shared/TaskDetailModal'
 import type { Database } from '../types/database.types'
 
 type ItemStatus = Database['public']['Enums']['item_status']
@@ -41,8 +40,6 @@ interface CalendarTask {
 export function CalendarView() {
   const { data, ui, patchUI } = useAppStore()
   const { calendarYear, calendarMonth, calendarSelectedDay } = ui
-
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
 
   // Today's date string
   const today = useMemo(() => {
@@ -296,7 +293,7 @@ export function CalendarView() {
                 <TaskCard
                   key={t.id}
                   task={t}
-                  onClick={() => setSelectedTaskId(t.id)}
+                  onClick={() => patchUI({ openTaskId: t.id })}
                 />
               ))}
             </div>
@@ -304,11 +301,6 @@ export function CalendarView() {
         </div>
       )}
 
-      {/* Task detail modal */}
-      <TaskDetailModal
-        taskId={selectedTaskId}
-        onClose={() => setSelectedTaskId(null)}
-      />
     </div>
   )
 }
