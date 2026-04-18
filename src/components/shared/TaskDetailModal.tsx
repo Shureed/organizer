@@ -1,4 +1,3 @@
-import { useRef } from 'react'
 import { useTaskDetail } from '../../hooks/useTaskDetail'
 import {
   Dialog,
@@ -8,7 +7,7 @@ import { TaskDetailHeader } from '../task-detail/TaskDetailHeader'
 import { TaskDetailFormGrid } from '../task-detail/TaskDetailFormGrid'
 import { TaskDetailSubtasks } from '../task-detail/TaskDetailSubtasks'
 import { TaskDetailRelated } from '../task-detail/TaskDetailRelated'
-import { CommentSection } from './CommentSection'
+import { TaskDetailComments } from '../task-detail/TaskDetailComments'
 
 interface TaskDetailModalProps {
   taskId: string | null
@@ -16,12 +15,9 @@ interface TaskDetailModalProps {
 }
 
 export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
-  const commentsBottomRef = useRef<HTMLDivElement>(null)
-
   const {
     task,
     subtasks,
-    comments,
     related,
     parentNode,
     loading,
@@ -36,15 +32,12 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     date,
     priority,
     bucket,
-    commentBody,
-    submittingComment,
     relatedOpen,
     isDateSet,
     setStatus,
     setDate,
     setPriority,
     setBucket,
-    setCommentBody,
     setRelatedOpen,
     setActiveTaskId,
   } = ui
@@ -144,14 +137,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
             />
 
             {/* Comments */}
-            <CommentSection
-              comments={comments}
-              value={commentBody}
-              onChange={setCommentBody}
-              onSubmit={() => actions.handleCommentSubmit(() => commentsBottomRef.current?.scrollIntoView())}
-              submitting={submittingComment}
-              bottomRef={commentsBottomRef}
-            />
+            <TaskDetailComments taskId={taskId} />
           </div>
         )}
       </DialogContent>
