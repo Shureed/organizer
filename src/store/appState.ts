@@ -17,6 +17,14 @@ export type ChainStatusItem = {
 }
 export type ActionNode = Tables<'action_node'>
 
+export type ChainNode = {
+  id: string
+  name: string
+  type: string
+  status: string
+  chain_origin_id: string
+}
+
 export interface SearchItem {
   type: string
   id: string
@@ -34,6 +42,7 @@ export interface AppData {
   closedProjects: ActionNode[]
   inbox: InboxItem[]
   chainStatus: ChainStatusItem[]
+  chainNodesByOrigin: Record<string, ChainNode[]>
   pinnedDoneTasks: ActionNode[]
   recentItems: Pick<ActionNode, 'id' | 'name' | 'status' | 'updated_at' | 'type' | 'priority'>[]
 }
@@ -67,6 +76,7 @@ const initialData: AppData = {
   closedProjects: [],
   inbox: [],
   chainStatus: [],
+  chainNodesByOrigin: {},
   pinnedDoneTasks: [],
   recentItems: [],
 }

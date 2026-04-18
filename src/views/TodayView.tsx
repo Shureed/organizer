@@ -4,7 +4,6 @@ import { loadTodayView, useAutoRefresh } from '../hooks/useDataLoader'
 import { TaskCard } from '../components/shared/TaskCard'
 import { TypeBadge } from '../components/shared/TypeBadge'
 import { StatusChip } from '../components/shared/StatusChip'
-import { supabase } from '../lib/supabase'
 import type { ActiveTask, ChainStatusItem } from '../store/appState'
 
 const AddTaskDialog = lazy(() => import('../components/today/AddTaskDialog'))
@@ -69,29 +68,8 @@ function CollapsibleSection({
 }
 
 // ── Chain Status Card ──────────────────────────────────────────────────────────
-interface ChainNode {
-  id: string
-  name: string
-  type: string
-  status: string
-}
-
 function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTask: (id: string) => void }) {
-  const [chainNodes, setChainNodes] = useState<ChainNode[]>([])
-
-  useEffect(() => {
-    if (!item.origin_id) return
-    supabase
-      .from('action_node')
-      .select('id, name, type, status')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .eq('chain_origin_id' as any, item.origin_id)
-      .eq('archived', false)
-      .order('created_at', { ascending: true })
-      .then(({ data }) => {
-        if (data) setChainNodes(data as ChainNode[])
-      })
-  }, [item.origin_id])
+  const chainNodes = useAppStore(s => s.data.chainNodesByOrigin[item.origin_id ?? ''] ?? [])
 
   return (
     <div
