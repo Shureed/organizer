@@ -26,6 +26,49 @@ const InboxDetailModal = lazy(() => import('./components/inbox/InboxDetailModal'
 
 type View = 'today' | 'calendar' | 'recents' | 'issues' | 'inbox'
 
+// ── Prefetch helpers ────────────────────────────────────────────────────────────
+// Called fire-and-forget on mouseenter / focus / touchstart over nav buttons.
+// Each import() path must mirror the React.lazy() paths above so Vite serves
+// the same chunk (deduped by the module registry).
+function dataSaverEnabled(): boolean {
+  return (
+    typeof navigator !== 'undefined' &&
+    (navigator as unknown as { connection?: { saveData?: boolean } }).connection
+      ?.saveData === true
+  )
+}
+
+export const prefetchToday = (): void => {
+  if (dataSaverEnabled()) return
+  import('./views/TodayView').catch(() => {/* swallow */})
+}
+export const prefetchCalendar = (): void => {
+  if (dataSaverEnabled()) return
+  import('./views/CalendarView').catch(() => {/* swallow */})
+}
+export const prefetchRecents = (): void => {
+  if (dataSaverEnabled()) return
+  import('./views/RecentsView').catch(() => {/* swallow */})
+}
+export const prefetchIssues = (): void => {
+  if (dataSaverEnabled()) return
+  import('./views/IssuesView').catch(() => {/* swallow */})
+}
+export const prefetchInbox = (): void => {
+  if (dataSaverEnabled()) return
+  import('./views/InboxView').catch(() => {/* swallow */})
+}
+
+type PrefetchFn = () => void
+
+const VIEW_PREFETCH: Record<View, PrefetchFn> = {
+  today: prefetchToday,
+  calendar: prefetchCalendar,
+  recents: prefetchRecents,
+  issues: prefetchIssues,
+  inbox: prefetchInbox,
+}
+
 const TABS: { id: View; label: string; Icon: React.ComponentType<{ size?: number; strokeWidth?: number }> }[] = [
   { id: 'today', label: 'Today', Icon: Home },
   { id: 'calendar', label: 'Calendar', Icon: CalendarDays },
@@ -212,10 +255,14 @@ function MainApp() {
       >
         {TABS.map((tab) => {
           const active = currentView === tab.id
+          const prefetch = VIEW_PREFETCH[tab.id]
           return (
             <button
               key={tab.id}
               onClick={() => patchUI({ currentView: tab.id })}
+              onMouseEnter={prefetch}
+              onFocus={prefetch}
+              onTouchStart={prefetch}
               style={{ color: active ? 'var(--accent)' : 'var(--text-muted)' }}
               className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] transition-colors ${active ? 'tab-active-line' : ''}`}
             >
