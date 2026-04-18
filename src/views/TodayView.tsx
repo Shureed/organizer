@@ -4,7 +4,9 @@ import { loadTodayView, useAutoRefresh } from '../hooks/useDataLoader'
 import { TaskCard } from '../components/shared/TaskCard'
 import { TypeBadge } from '../components/shared/TypeBadge'
 import { StatusChip } from '../components/shared/StatusChip'
-import type { ActiveTask, ChainStatusItem } from '../store/appState'
+import type { ActiveTask, ChainStatusItem, ChainNode } from '../store/appState'
+
+const EMPTY_CHAIN_NODES: ChainNode[] = []
 
 const AddTaskDialog = lazy(() => import('../components/today/AddTaskDialog'))
 
@@ -69,7 +71,7 @@ function CollapsibleSection({
 
 // ── Chain Status Card ──────────────────────────────────────────────────────────
 function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTask: (id: string) => void }) {
-  const chainNodes = useAppStore(s => s.data.chainNodesByOrigin[item.origin_id ?? ''] ?? [])
+  const chainNodes = useAppStore(s => s.data.chainNodesByOrigin[item.origin_id ?? ''] ?? EMPTY_CHAIN_NODES)
 
   return (
     <div
