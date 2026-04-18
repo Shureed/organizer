@@ -50,6 +50,8 @@ export interface AppUI {
   showClosedSearch: boolean
   searchItems: SearchItem[]
   fuseIndex: Fuse<SearchItem> | null
+  openTaskId: string | null
+  openInboxId: string | null
 }
 
 interface AppStore {
@@ -83,6 +85,8 @@ const initialUI: AppUI = {
   showClosedSearch: false,
   searchItems: [],
   fuseIndex: null,
+  openTaskId: null,
+  openInboxId: null,
 }
 
 export const useAppStore = create<AppStore>((set) => ({
