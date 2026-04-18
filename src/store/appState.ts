@@ -61,12 +61,11 @@ export interface AppUI {
   openInboxId: string | null
 }
 
-interface AppStore {
+// ── Data store ─────────────────────────────────────────────────────────────────
+
+interface DataStore {
   data: AppData
-  ui: AppUI
-  setData: (data: Partial<AppData>) => void
-  setUI: (ui: AppUI) => void
-  patchUI: (patch: Partial<AppUI>) => void
+  setData: (patch: Partial<AppData>) => void
 }
 
 const initialData: AppData = {
@@ -79,6 +78,20 @@ const initialData: AppData = {
   chainNodesByOrigin: {},
   pinnedDoneTasks: [],
   recentItems: [],
+}
+
+export const useDataStore = create<DataStore>((set) => ({
+  data: initialData,
+  setData: (patch) =>
+    set((state) => ({ data: { ...state.data, ...patch } })),
+}))
+
+// ── UI store ───────────────────────────────────────────────────────────────────
+
+interface UIStore {
+  ui: AppUI
+  setUI: (ui: AppUI) => void
+  patchUI: (patch: Partial<AppUI>) => void
 }
 
 const initialUI: AppUI = {
@@ -95,12 +108,51 @@ const initialUI: AppUI = {
   openInboxId: null,
 }
 
-export const useAppStore = create<AppStore>((set) => ({
-  data: initialData,
+export const useUIStore = create<UIStore>((set) => ({
   ui: initialUI,
-  setData: (patch) =>
-    set((state) => ({ data: { ...state.data, ...patch } })),
   setUI: (ui) => set({ ui }),
   patchUI: (patch) =>
     set((state) => ({ ui: { ...state.ui, ...patch } })),
 }))
+
+// ── Compat shim ────────────────────────────────────────────────────────────────
+// useAppStore(selector) runs the selector against a combined snapshot
+// { data, ui, setData, setUI, patchUI }. Zustand's default Object.is comparison
+// on the selector output means primitive/ref selectors are stable.
+//
+// NOTE: calling useAppStore() with NO selector returns the combined object —
+// a new reference every render. Destructuring that defeats the perf goal.
+// Migrate callsites to useDataStore / useUIStore directly for the actual win.
+
+type CombinedStore = {
+  data: AppData
+  ui: AppUI
+  setData: DataStore['setData']
+  setUI: UIStore['setUI']
+  patchUI: UIStore['patchUI']
+}
+
+// Identity selector used when no selector is provided (whole-object compat).
+const IDENTITY = (s: CombinedStore) => s
+
+export function useAppStore(): CombinedStore
+export function useAppStore<T>(selector: (s: CombinedStore) => T): T
+export function useAppStore<T>(selector?: (s: CombinedStore) => T): CombinedStore | T {
+  const data = useDataStore((s) => s.data)
+  const setData = useDataStore((s) => s.setData)
+  const ui = useUIStore((s) => s.ui)
+  const setUI = useUIStore((s) => s.setUI)
+  const patchUI = useUIStore((s) => s.patchUI)
+
+  const combined: CombinedStore = { data, ui, setData, setUI, patchUI }
+
+  return (selector ?? IDENTITY)(combined) as CombinedStore | T
+}
+
+// Give the compat shim access to .getState() used by hooks/useDataLoader and
+// hooks/useSearch (they call useAppStore.getState().setData / patchUI).
+useAppStore.getState = (): CombinedStore => {
+  const { data, setData } = useDataStore.getState()
+  const { ui, setUI, patchUI } = useUIStore.getState()
+  return { data, ui, setData, setUI, patchUI }
+}

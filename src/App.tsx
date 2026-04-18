@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useDataLoader, loadShellSeed } from './hooks/useDataLoader'
-import { useAppStore } from './store/appState'
+import { useUIStore, useDataStore } from './store/appState'
 import { scheduleSearchRebuild, useSearch } from './hooks/useSearch'
 import { LoadingSpinner } from './components/LoadingSpinner'
 import './App.css'
@@ -182,11 +182,11 @@ function SearchBar({ onSelect }: SearchBarProps) {
 
 // ── Main App ───────────────────────────────────────────────────────────────────
 function MainApp() {
-  const currentView = useAppStore((s) => s.ui.currentView)
-  const openTaskId = useAppStore((s) => s.ui.openTaskId)
-  const openInboxId = useAppStore((s) => s.ui.openInboxId)
-  const patchUI = useAppStore((s) => s.patchUI)
-  const data = useAppStore((s) => s.data)
+  const currentView = useUIStore((s) => s.ui.currentView)
+  const openTaskId = useUIStore((s) => s.ui.openTaskId)
+  const openInboxId = useUIStore((s) => s.ui.openInboxId)
+  const patchUI = useUIStore((s) => s.patchUI)
+  const data = useDataStore((s) => s.data)
   const { refreshTasks } = useDataLoader()
 
   // Preserve refreshTasks-on-close behaviour (was Today-only; now applies to all views)

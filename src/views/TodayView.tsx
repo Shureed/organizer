@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { useAppStore } from '../store/appState'
+import { useDataStore, useUIStore } from '../store/appState'
 import { loadTodayView, useAutoRefresh } from '../hooks/useDataLoader'
 import { TaskCard } from '../components/shared/TaskCard'
 import { TypeBadge } from '../components/shared/TypeBadge'
@@ -71,7 +71,7 @@ function CollapsibleSection({
 
 // ── Chain Status Card ──────────────────────────────────────────────────────────
 function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTask: (id: string) => void }) {
-  const chainNodes = useAppStore(s => s.data.chainNodesByOrigin[item.origin_id ?? ''] ?? EMPTY_CHAIN_NODES)
+  const chainNodes = useDataStore(s => s.data.chainNodesByOrigin[item.origin_id ?? ''] ?? EMPTY_CHAIN_NODES)
 
   return (
     <div
@@ -119,7 +119,8 @@ function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTa
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 export function TodayView() {
-  const { data, patchUI } = useAppStore()
+  const data = useDataStore((s) => s.data)
+  const patchUI = useUIStore((s) => s.patchUI)
   const [showAddTask, setShowAddTask] = useState(false)
 
   useEffect(() => { loadTodayView() }, [])
