@@ -139,6 +139,7 @@ function SearchBar({ onSelect }: SearchBarProps) {
 // ── Main App ───────────────────────────────────────────────────────────────────
 function MainApp() {
   const currentView = useAppStore((s) => s.ui.currentView)
+  const openInboxId = useAppStore((s) => s.ui.openInboxId)
   const patchUI = useAppStore((s) => s.patchUI)
   const data = useAppStore((s) => s.data)
   const { loadAll } = useDataLoader()
@@ -161,8 +162,12 @@ function MainApp() {
   }, [data])
 
   const handleSearchSelect = (id: string, type: string) => {
-    setSearchSelectedId(id)
-    setSearchSelectedType(type)
+    if (type === 'inbox') {
+      patchUI({ openInboxId: id })
+    } else {
+      setSearchSelectedId(id)
+      setSearchSelectedType(type)
+    }
   }
 
   const handleSearchModalClose = () => {
@@ -217,11 +222,12 @@ function MainApp() {
       </nav>
 
       {/* Search result modals — rendered at top level, no tab switch */}
-      {searchSelectedType === 'inbox' ? (
-        <InboxDetailModal itemId={searchSelectedId} onClose={handleSearchModalClose} />
-      ) : (
+      {searchSelectedType === 'task' && (
         <TaskDetailModal taskId={searchSelectedId} onClose={handleSearchModalClose} />
       )}
+
+      {/* Top-level inbox detail modal */}
+      <InboxDetailModal itemId={openInboxId} onClose={() => patchUI({ openInboxId: null })} />
     </div>
   )
 }

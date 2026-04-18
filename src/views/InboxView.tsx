@@ -3,7 +3,6 @@ import { useAppStore } from '../store/appState'
 import { useDataLoader } from '../hooks/useDataLoader'
 import { useMutations } from '../hooks/useMutations'
 import { InboxItem } from '../components/inbox/InboxItem'
-import { InboxDetailModal } from '../components/inbox/InboxDetailModal'
 import { Button } from '../components/ui/button'
 import {
   Dialog,
@@ -67,10 +66,10 @@ function PlusIcon() {
 
 export function InboxView() {
   const inbox = useAppStore((s) => s.data.inbox)
+  const patchUI = useAppStore((s) => s.patchUI)
   const { refreshInbox } = useDataLoader()
   const { addInbox } = useMutations()
 
-  const [detailId, setDetailId] = useState<string | null>(null)
   const [inboxOpen, setInboxOpen] = useState(true)
   const [captureOpen, setCaptureOpen] = useState(false)
   const [captureTitle, setCaptureTitle] = useState('')
@@ -151,7 +150,7 @@ export function InboxView() {
                   <InboxItem
                     key={item.id ?? item.created_at}
                     item={item}
-                    onOpenDetail={setDetailId}
+                    onOpenDetail={(id) => patchUI({ openInboxId: id })}
                   />
                 ))}
               </div>
@@ -174,7 +173,7 @@ export function InboxView() {
                   <InboxItem
                     key={item.id ?? item.created_at}
                     item={item}
-                    onOpenDetail={setDetailId}
+                    onOpenDetail={(id) => patchUI({ openInboxId: id })}
                   />
                 ))}
               </div>
@@ -266,11 +265,6 @@ export function InboxView() {
         </DialogContent>
       </Dialog>
 
-      {/* Detail modal */}
-      <InboxDetailModal
-        itemId={detailId}
-        onClose={() => setDetailId(null)}
-      />
     </div>
   )
 }
