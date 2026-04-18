@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { useAppStore } from '../store/appState'
 import { IssueCard } from '../components/issues/IssueCard'
 import { ScrollArea } from '../components/ui/scroll-area'
+import { loadIssuesView, useAutoRefresh } from '../hooks/useDataLoader'
 
 const ISSUE_TYPES = ['bug', 'improvement', 'feature', 'idea', 'thought', 'context_gathering', 'plan'] as const
 const TASK_TYPES_EXCLUDED = new Set(['task', 'project'])
@@ -13,6 +15,9 @@ const PRIORITY_RANK: Record<string, number> = {
 
 export function IssuesView() {
   const { data, ui, patchUI } = useAppStore()
+
+  useEffect(() => { loadIssuesView() }, [])
+  useAutoRefresh(loadIssuesView, 30000)
 
   // Filter to issue types only
   const issues = data.tasks.filter((t) => t.type && !TASK_TYPES_EXCLUDED.has(t.type))

@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import { useAppStore } from '../store/appState'
+import { loadCalendarView, useAutoRefresh } from '../hooks/useDataLoader'
 import { TaskCard } from '../components/calendar/TaskCard'
 import type { Database } from '../types/database.types'
 
@@ -40,6 +41,9 @@ interface CalendarTask {
 export function CalendarView() {
   const { data, ui, patchUI } = useAppStore()
   const { calendarYear, calendarMonth, calendarSelectedDay } = ui
+
+  useEffect(() => { loadCalendarView() }, [])
+  useAutoRefresh(loadCalendarView, 30000)
 
   // Today's date string
   const today = useMemo(() => {
