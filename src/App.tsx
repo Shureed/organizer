@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
-import { useAutoRefresh, useDataLoader } from './hooks/useDataLoader'
+import { useDataLoader, loadShellSeed } from './hooks/useDataLoader'
 import { useAppStore } from './store/appState'
 import { buildSearchIndex, useSearch } from './hooks/useSearch'
 import { LoadingSpinner } from './components/LoadingSpinner'
@@ -187,8 +187,7 @@ function MainApp() {
   const openInboxId = useAppStore((s) => s.ui.openInboxId)
   const patchUI = useAppStore((s) => s.patchUI)
   const data = useAppStore((s) => s.data)
-  const { loadAll, refreshTasks } = useDataLoader()
-  useAutoRefresh(30000)
+  const { refreshTasks } = useDataLoader()
 
   // Preserve refreshTasks-on-close behaviour (was Today-only; now applies to all views)
   const prevOpenTaskIdRef = useRef<string | null>(null)
@@ -200,10 +199,9 @@ function MainApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openTaskId])
 
-  // Initial load
+  // Shell seed: kick off tasks load before any view mounts
   useEffect(() => {
-    loadAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadShellSeed()
   }, [])
 
   // Build search index once data is loaded

@@ -6,124 +6,147 @@ import { useAppStore } from '../store/appState'
 const lastFetchedAt = new Map<string, number>()
 const DEDUP_MS = 200
 
+// ── Module-level slice loaders ──────────────────────────────────────────────────
+// Use store's getState() so these are plain async functions (no hook context needed).
+// This makes the per-view composers below referentially stable module-level exports.
+
+const getSetData = () => useAppStore.getState().setData
+
+export async function loadTasks(force = false): Promise<void> {
+  const key = 'tasks'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data } = await supabase
+    .from('v_active_tasks')
+    .select('*')
+    .order('date', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+
+  getSetData()({ tasks: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
+export async function loadProjects(force = false): Promise<void> {
+  const key = 'projects'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data } = await supabase
+    .from('v_active_projects')
+    .select('*')
+    .order('name', { ascending: true })
+
+  getSetData()({ projects: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
+export async function loadClosedTasks(force = false): Promise<void> {
+  const key = 'closedTasks'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data } = await supabase
+    .from('action_node')
+    .select('*')
+    .in('status', ['done', 'cancelled'])
+    .eq('archived', false)
+    .neq('type', 'project')
+
+  getSetData()({ closedTasks: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
+export async function loadClosedProjects(force = false): Promise<void> {
+  const key = 'closedProjects'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data } = await supabase
+    .from('action_node')
+    .select('*')
+    .eq('type', 'project')
+    .in('status', ['done', 'cancelled'])
+    .eq('archived', false)
+
+  getSetData()({ closedProjects: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
+export async function loadInbox(force = false): Promise<void> {
+  const key = 'inbox'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data } = await supabase
+    .from('v_new_inbox')
+    .select('*')
+    .order('created_at', { ascending: false })
+
+  getSetData()({ inbox: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
+export async function loadChainStatus(force = false): Promise<void> {
+  const key = 'chainStatus'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data } = await supabase
+    .from('v_chain_status')
+    .select('*')
+
+  getSetData()({ chainStatus: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
+export async function loadPinnedDoneTasks(force = false): Promise<void> {
+  const key = 'pinnedDoneTasks'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data } = await supabase
+    .from('action_node')
+    .select('*')
+    .eq('pinned', true)
+    .eq('status', 'done')
+    .eq('archived', false)
+    .order('created_at', { ascending: true })
+
+  getSetData()({ pinnedDoneTasks: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
+export async function loadRecentItems(force = false): Promise<void> {
+  const key = 'recentItems'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data } = await supabase
+    .from('action_node')
+    .select('id, name, status, updated_at, type, priority')
+    .eq('archived', false)
+    .order('updated_at', { ascending: false })
+    .limit(25)
+
+  getSetData()({ recentItems: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
+// ── Per-view composers ──────────────────────────────────────────────────────────
+// Stable module-level exports. Slice loaders dedup within 200ms so shell seed +
+// view loader co-firing collapses to one request per slice.
+
+export const loadShellSeed = (): Promise<void> => loadTasks()
+
+export const loadTodayView = (): Promise<unknown> =>
+  Promise.all([loadTasks(), loadProjects(), loadChainStatus(), loadPinnedDoneTasks()])
+
+export const loadCalendarView = (): Promise<unknown> =>
+  Promise.all([loadTasks(), loadClosedTasks()])
+
+export const loadIssuesView = (): Promise<void> => loadTasks()
+
+export const loadRecentsView = (): Promise<void> => loadRecentItems()
+
+export const loadInboxView = (): Promise<void> => loadInbox()
+
+// ── useDataLoader hook ──────────────────────────────────────────────────────────
+// Provides forced-refresh variants and the loadAll escape hatch for mutations.
 export function useDataLoader() {
-  const setData = useAppStore((s) => s.setData)
-
-  // Per-slice loaders
-  const loadTasks = async (force = false) => {
-    const key = 'tasks'
-    if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-    const { data } = await supabase
-      .from('v_active_tasks')
-      .select('*')
-      .order('date', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true })
-
-    setData({ tasks: data ?? [] })
-    lastFetchedAt.set(key, Date.now())
-  }
-
-  const loadProjects = async (force = false) => {
-    const key = 'projects'
-    if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-    const { data } = await supabase
-      .from('v_active_projects')
-      .select('*')
-      .order('name', { ascending: true })
-
-    setData({ projects: data ?? [] })
-    lastFetchedAt.set(key, Date.now())
-  }
-
-  const loadClosedTasks = async (force = false) => {
-    const key = 'closedTasks'
-    if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-    const { data } = await supabase
-      .from('action_node')
-      .select('*')
-      .in('status', ['done', 'cancelled'])
-      .eq('archived', false)
-      .neq('type', 'project')
-
-    setData({ closedTasks: data ?? [] })
-    lastFetchedAt.set(key, Date.now())
-  }
-
-  const loadClosedProjects = async (force = false) => {
-    const key = 'closedProjects'
-    if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-    const { data } = await supabase
-      .from('action_node')
-      .select('*')
-      .eq('type', 'project')
-      .in('status', ['done', 'cancelled'])
-      .eq('archived', false)
-
-    setData({ closedProjects: data ?? [] })
-    lastFetchedAt.set(key, Date.now())
-  }
-
-  const loadInbox = async (force = false) => {
-    const key = 'inbox'
-    if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-    const { data } = await supabase
-      .from('v_new_inbox')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    setData({ inbox: data ?? [] })
-    lastFetchedAt.set(key, Date.now())
-  }
-
-  const loadChainStatus = async (force = false) => {
-    const key = 'chainStatus'
-    if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-    const { data } = await supabase
-      .from('v_chain_status')
-      .select('*')
-
-    setData({ chainStatus: data ?? [] })
-    lastFetchedAt.set(key, Date.now())
-  }
-
-  const loadPinnedDoneTasks = async (force = false) => {
-    const key = 'pinnedDoneTasks'
-    if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-    const { data } = await supabase
-      .from('action_node')
-      .select('*')
-      .eq('pinned', true)
-      .eq('status', 'done')
-      .eq('archived', false)
-      .order('created_at', { ascending: true })
-
-    setData({ pinnedDoneTasks: data ?? [] })
-    lastFetchedAt.set(key, Date.now())
-  }
-
-  const loadRecentItems = async (force = false) => {
-    const key = 'recentItems'
-    if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-    const { data } = await supabase
-      .from('action_node')
-      .select('id, name, status, updated_at, type, priority')
-      .eq('archived', false)
-      .order('updated_at', { ascending: false })
-      .limit(25)
-
-    setData({ recentItems: data ?? [] })
-    lastFetchedAt.set(key, Date.now())
-  }
-
-  // Recomposed refresh functions
+  // Recomposed refresh functions (force = true bypasses dedup)
   const refreshTasks = () => Promise.all([
     loadTasks(true),
     loadProjects(true),
@@ -162,13 +185,22 @@ export function useDataLoader() {
   }
 }
 
-export function useAutoRefresh(interval = 30000) {
-  const { loadAll } = useDataLoader()
-  const loadAllRef = useRef(loadAll)
-  loadAllRef.current = loadAll
-
+// ── useAutoRefresh ──────────────────────────────────────────────────────────────
+// Visibility-gated polling. `load` should be a stable reference (module-level
+// composer) so the effect deps are stable.
+export function useAutoRefresh(load: () => Promise<unknown>, interval = 30000) {
+  const lastRunAt = useRef(Date.now())
   useEffect(() => {
-    const id = setInterval(() => loadAllRef.current(), interval)
-    return () => clearInterval(id)
-  }, [interval])
+    const id = setInterval(() => {
+      if (document.hidden) return
+      load().then(() => { lastRunAt.current = Date.now() })
+    }, interval)
+    const onVis = () => {
+      if (!document.hidden && Date.now() - lastRunAt.current > interval) {
+        load().then(() => { lastRunAt.current = Date.now() })
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
+  }, [load, interval])
 }

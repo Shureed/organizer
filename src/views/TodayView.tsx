@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { useAppStore } from '../store/appState'
+import { loadTodayView, useAutoRefresh } from '../hooks/useDataLoader'
 import { TaskCard } from '../components/shared/TaskCard'
 import { TypeBadge } from '../components/shared/TypeBadge'
 import { StatusChip } from '../components/shared/StatusChip'
@@ -140,6 +141,9 @@ function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTa
 export function TodayView() {
   const { data, patchUI } = useAppStore()
   const [showAddTask, setShowAddTask] = useState(false)
+
+  useEffect(() => { loadTodayView() }, [])
+  useAutoRefresh(loadTodayView, 30000)
 
   const today = getTodayStr()
 
