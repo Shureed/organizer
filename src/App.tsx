@@ -11,7 +11,7 @@ import {
 import { useAuth } from './hooks/useAuth'
 import { useDataLoader, loadShellSeed } from './hooks/useDataLoader'
 import { useAppStore } from './store/appState'
-import { buildSearchIndex, useSearch } from './hooks/useSearch'
+import { scheduleSearchRebuild, useSearch } from './hooks/useSearch'
 import { LoadingSpinner } from './components/LoadingSpinner'
 import './App.css'
 
@@ -204,12 +204,12 @@ function MainApp() {
     loadShellSeed()
   }, [])
 
-  // Build search index once data is loaded
-  useEffect(() => {
-    if (data.tasks.length > 0) {
-      buildSearchIndex(data)
-    }
-  }, [data])
+  // Build search index per slice (idle-coalesced)
+  useEffect(() => { scheduleSearchRebuild('tasks', data) }, [data.tasks])
+  useEffect(() => { scheduleSearchRebuild('projects', data) }, [data.projects])
+  useEffect(() => { scheduleSearchRebuild('closedTasks', data) }, [data.closedTasks])
+  useEffect(() => { scheduleSearchRebuild('closedProjects', data) }, [data.closedProjects])
+  useEffect(() => { scheduleSearchRebuild('inbox', data) }, [data.inbox])
 
   const handleSearchSelect = (id: string, type: string) => {
     if (type === 'inbox') {
