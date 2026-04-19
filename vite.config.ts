@@ -17,4 +17,14 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react-vendor'
+          if (/\/node_modules\/(@supabase\/[^/]+|phoenix)\//.test(id)) return 'supabase-vendor'
+        },
+      },
+    },
+  },
 })
