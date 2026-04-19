@@ -1,7 +1,18 @@
 import { useCallback } from 'react'
-import Fuse from 'fuse.js'
 import { useAppStore } from '../store/appState'
 import type { AppData, SearchItem } from '../store/appState'
+
+let FuseCtor: typeof import('fuse.js').default | null = null
+let fuseLoading: Promise<void> | null = null
+
+function ensureFuse(): Promise<void> {
+  if (FuseCtor) return Promise.resolve()
+  if (fuseLoading) return fuseLoading
+  fuseLoading = import('fuse.js').then((m) => {
+    FuseCtor = m.default
+  })
+  return fuseLoading
+}
 
 function normalizeSearchText(text: string): string {
   return text
@@ -101,10 +112,11 @@ export function scheduleSearchRebuild(slice: SliceKey, data: AppData) {
   itemsBySlice.set(slice, computeSliceItems(slice, data))
   if (pendingRebuild) return
   pendingRebuild = true
-  const run = () => {
+  const run = async () => {
     pendingRebuild = false
+    await ensureFuse()
     const allItems = [...itemsBySlice.values()].flat()
-    const fuse = new Fuse(allItems, FUSE_OPTIONS)
+    const fuse = new FuseCtor!(allItems, FUSE_OPTIONS)
     useAppStore.getState().patchUI({ searchItems: allItems, fuseIndex: fuse })
   }
   const ric = (globalThis as any).requestIdleCallback
