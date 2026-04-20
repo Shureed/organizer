@@ -15,6 +15,8 @@ import { useRealtime } from './hooks/useRealtime'
 import { useUIStore, useDataStore } from './store/appState'
 import { scheduleSearchRebuild, useSearch } from './hooks/useSearch'
 import { LoadingSpinner } from './components/LoadingSpinner'
+import { OfflineIndicator } from './components/OfflineIndicator'
+import { UpdatePrompt } from './components/UpdatePrompt'
 import './App.css'
 
 const LoginPage = lazy(() => import('./components/LoginPage').then(m => ({ default: m.LoginPage })))
@@ -233,6 +235,8 @@ function MainApp({ session }: MainAppProps) {
       style={{ background: 'var(--bg)', color: 'var(--text)' }}
       className="min-h-screen flex flex-col"
     >
+      <OfflineIndicator />
+      <UpdatePrompt />
       {/* Top search bar */}
       <div
         style={{
