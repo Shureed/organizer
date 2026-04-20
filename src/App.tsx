@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, lazy, Suspense } from 'react'
+import type { Session } from '@supabase/supabase-js'
 import {
   Home,
   CalendarDays,
@@ -10,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from './hooks/useAuth'
 import { useDataLoader, loadShellSeed } from './hooks/useDataLoader'
+import { useRealtime } from './hooks/useRealtime'
 import { useUIStore, useDataStore } from './store/appState'
 import { scheduleSearchRebuild, useSearch } from './hooks/useSearch'
 import { LoadingSpinner } from './components/LoadingSpinner'
@@ -181,13 +183,20 @@ function SearchBar({ onSelect }: SearchBarProps) {
 }
 
 // ── Main App ───────────────────────────────────────────────────────────────────
-function MainApp() {
+interface MainAppProps {
+  session: Session
+}
+
+function MainApp({ session }: MainAppProps) {
   const currentView = useUIStore((s) => s.ui.currentView)
   const openTaskId = useUIStore((s) => s.ui.openTaskId)
   const openInboxId = useUIStore((s) => s.ui.openInboxId)
   const patchUI = useUIStore((s) => s.patchUI)
   const data = useDataStore((s) => s.data)
   const { refreshTasks } = useDataLoader()
+
+  // Mount realtime subscriptions for this authenticated session
+  useRealtime(session)
 
   // Preserve refreshTasks-on-close behaviour (was Today-only; now applies to all views)
   const prevOpenTaskIdRef = useRef<string | null>(null)
@@ -295,5 +304,5 @@ export default function App() {
       <LoginPage />
     </Suspense>
   )
-  return <MainApp />
+  return <MainApp session={session} />
 }
