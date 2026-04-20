@@ -39,17 +39,14 @@ function invalidateFor(table: string, _payload: unknown): void {
 }
 
 // ── Reconnect reconciliation ────────────────────────────────────────────────────
-// On channel rejoin we flush all slices once (if we've already subscribed at
+// On channel rejoin we flush all slices once if we've already subscribed at
 // least once — the very first SUBSCRIBED fires during initial mount when data
-// is already being loaded by the shell seed, so we skip it).
-let hasSubscribedOnce = false
-
-function onRejoin(): void {
-  if (hasSubscribedOnce) {
-    void loadAll()
-  }
-  hasSubscribedOnce = true
-}
+// is already being loaded by the shell seed, so we skip it.
+//
+// hasSubscribedOnce is a ref-like value scoped inside the effect so it resets
+// correctly when the effect re-runs (e.g. user signs out and back in, producing
+// a different user.id and therefore a new channel lifecycle). Module-level state
+// would persist across re-mounts and incorrectly trigger loadAll on first login.
 
 // ── useRealtime ─────────────────────────────────────────────────────────────────
 export function useRealtime(session: Session | null): void {
@@ -59,6 +56,16 @@ export function useRealtime(session: Session | null): void {
     if (!session) return
 
     supabase.realtime.setAuth(session.access_token)
+
+    // Scoped to this effect run so it resets on sign-out / user change.
+    let hasSubscribedOnce = false
+
+    const onRejoin = () => {
+      if (hasSubscribedOnce) {
+        void loadAll()
+      }
+      hasSubscribedOnce = true
+    }
 
     const action = supabase
       .channel('rt:action_node')
@@ -83,7 +90,7 @@ export function useRealtime(session: Session | null): void {
       })
 
     // Visibility reconciliation: if the tab was hidden ≥ 60 s, flush all
-    // slices on return to avoid stale UI from missed events.
+    // slices on return to avoid stale UI from missed realtime events.
     let hiddenAt: number | null = null
 
     const onVisibilityChange = () => {
