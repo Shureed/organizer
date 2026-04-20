@@ -71,8 +71,15 @@ export function setCacheUserScope(uid: string | null): void {
   ;(globalThis as unknown as { __SB_UID__?: string }).__SB_UID__ = uid ?? 'anon'
 }
 
-/** Delete the entire supabase-rest Cache Storage partition. Call on sign-out. */
+/**
+ * Clear any remaining SW caches on sign-out.
+ * supabase-rest cache was retired in PR-C T12; this clears leftover entries
+ * from previous SW versions and any other per-user caches.
+ */
 export async function clearSupabaseRestCache(): Promise<void> {
   if (!('caches' in globalThis)) return
+  // Delete the (now-retired) supabase-rest cache if it still exists from a
+  // previous SW version.  All other named caches (view-chunks, fonts) are
+  // asset caches and are intentionally kept across sign-out.
   await caches.delete('supabase-rest')
 }
