@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
-import { useDataLoader } from './useDataLoader'
+import { optimistic } from './useOptimistic'
 import type { Database } from '../types/database.types'
+import type { ActiveTask, InboxItem } from '../store/appState'
 
 type ItemStatus = Database['public']['Enums']['item_status']
 type ItemBucket = Database['public']['Enums']['item_bucket']
@@ -35,9 +36,7 @@ export interface PostCommentInput {
 }
 
 export function useMutations() {
-  const { refreshTasks, refreshInbox } = useDataLoader()
-
-  const changeTaskStatus = async (
+  const changeTaskStatus = (
     id: string,
     status: ItemStatus,
     bucket?: ItemBucket | null,
@@ -52,47 +51,81 @@ export function useMutations() {
       ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
     }
 
-    const { error } = await supabase
-      .from('action_node')
-      .update(update)
-      .eq('id', id)
-
-    if (error) throw error
-    await refreshTasks()
+    return optimistic(
+      'tasks',
+      (tasks) =>
+        tasks.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                status,
+                ...(bucket !== undefined ? { bucket } : {}),
+                ...(date !== undefined ? { date } : {}),
+                ...(priority !== undefined ? { priority } : {}),
+                ...(status === 'done' ? { completed_at: new Date().toISOString() } : {}),
+              }
+            : t
+        ) as ActiveTask[],
+      async () => {
+        const { error } = await supabase
+          .from('action_node')
+          .update(update)
+          .eq('id', id)
+        if (error) throw error
+      },
+    )
   }
 
-  const archiveInbox = async (id: string) => {
-    const { error } = await supabase
-      .from('inbox')
-      .update({ archived: true })
-      .eq('id', id)
+  const archiveInbox = (id: string) =>
+    optimistic(
+      'inbox',
+      (inbox) => inbox.filter((item) => item.id !== id) as InboxItem[],
+      async () => {
+        const { error } = await supabase
+          .from('inbox')
+          .update({ archived: true })
+          .eq('id', id)
+        if (error) throw error
+      },
+    )
 
-    if (error) throw error
-    await refreshInbox()
-  }
+  const togglePin = (id: string, pinned: boolean) =>
+    optimistic(
+      'inbox',
+      (inbox) =>
+        inbox.map((item) =>
+          item.id === id ? { ...item, pinned } : item
+        ) as InboxItem[],
+      async () => {
+        const { error } = await supabase
+          .from('inbox')
+          .update({ pinned })
+          .eq('id', id)
+        if (error) throw error
+      },
+    )
 
-  const togglePin = async (id: string, pinned: boolean) => {
-    const { error } = await supabase
-      .from('inbox')
-      .update({ pinned })
-      .eq('id', id)
+  const toggleTaskPin = (id: string, pinned: boolean) =>
+    optimistic(
+      'tasks',
+      (tasks) =>
+        tasks.map((t) =>
+          t.id === id ? { ...t, pinned } : t
+        ) as ActiveTask[],
+      async () => {
+        const { error } = await supabase
+          .from('action_node')
+          .update({ pinned })
+          .eq('id', id)
+        if (error) throw error
+      },
+    )
 
-    if (error) throw error
-    await refreshInbox()
-  }
-
-  const toggleTaskPin = async (id: string, pinned: boolean) => {
-    const { error } = await supabase
-      .from('action_node')
-      .update({ pinned })
-      .eq('id', id)
-
-    if (error) throw error
-    await refreshTasks()
-  }
-
-  const addTask = async (task: AddTaskInput) => {
-    const { error } = await supabase.from('action_node').insert({
+  const addTask = (task: AddTaskInput) => {
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    const optimisticRow: ActiveTask = {
+      id,
       name: task.name,
       type: task.type ?? 'task',
       status: task.status ?? 'open',
@@ -102,21 +135,70 @@ export function useMutations() {
       body: task.body ?? null,
       bucket: task.bucket ?? null,
       priority: task.priority ?? null,
-    })
+      created_at: now,
+      updated_at: now,
+      completed_at: null,
+      archived: false,
+      pinned: false,
+      git_backed: false,
+      git_pr_url: null,
+      project_name: null,
+      space_name: null,
+      space_path: null,
+      user_id: null,
+    }
 
-    if (error) throw error
-    await refreshTasks()
+    return optimistic(
+      'tasks',
+      (tasks) => [optimisticRow, ...tasks] as ActiveTask[],
+      async () => {
+        const { error } = await supabase.from('action_node').insert({
+          id,
+          name: task.name,
+          type: task.type ?? 'task',
+          status: task.status ?? 'open',
+          parent_id: task.parent_id ?? null,
+          space_id: task.space_id ?? null,
+          date: task.date ?? null,
+          body: task.body ?? null,
+          bucket: task.bucket ?? null,
+          priority: task.priority ?? null,
+        })
+        if (error) throw error
+      },
+    )
   }
 
-  const addInbox = async (item: AddInboxInput) => {
-    const { error } = await supabase.from('inbox').insert({
+  const addInbox = (item: AddInboxInput) => {
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    const optimisticRow: InboxItem = {
+      id,
       title: item.title,
       body: item.body ?? null,
       source: item.source ?? 'shortcut',
-    })
+      created_at: now,
+      archived: false,
+      pinned: false,
+      read: false,
+      item_id: null,
+      item_type: null,
+      user_id: null,
+    }
 
-    if (error) throw error
-    await refreshInbox()
+    return optimistic(
+      'inbox',
+      (inbox) => [optimisticRow, ...inbox] as InboxItem[],
+      async () => {
+        const { error } = await supabase.from('inbox').insert({
+          id,
+          title: item.title,
+          body: item.body ?? null,
+          source: item.source ?? 'shortcut',
+        })
+        if (error) throw error
+      },
+    )
   }
 
   const postComment = async (comment: PostCommentInput) => {
