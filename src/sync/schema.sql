@@ -1,0 +1,9 @@
+-- Local SQLite schema — placeholder for T5 (PR-B).
+-- T5 will populate this file with the full table definitions, indexes,
+-- and local view mirrors of v_active_tasks, v_active_projects,
+-- v_new_inbox, and v_chain_status.
+--
+-- The migration runner (db.worker.ts) reads numbered .sql files from
+-- src/sync/migrations/ at build time (via Vite ?raw imports) and applies
+-- them in order. This file serves as a human-readable reference; the
+-- canonical schema is the aggregate of all applied migrations.
