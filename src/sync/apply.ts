@@ -25,7 +25,7 @@
  */
 
 import { isSqliteAvailable, mutate } from './client'
-import { upsertFromServer, pullActiveJoinsFor } from './pull'
+import { upsertFromServer, upsertCommentFromServer, pullActiveJoinsFor } from './pull'
 import type { SyncTable } from './pull'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -56,8 +56,27 @@ export async function applyRealtime(payload: RealtimePayload): Promise<void> {
     const available = await isSqliteAvailable()
     if (!available) return
 
-    const table = payload.table as SyncTable
-    if (table !== 'action_node' && table !== 'inbox') return
+    const rawTable = payload.table
+    if (rawTable !== 'action_node' && rawTable !== 'inbox' && rawTable !== 'comments') return
+
+    // Comments: append-only, no _deleted column, no join-col refresh.
+    if (rawTable === 'comments') {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const row = payload.new
+        if (!row || !row['id']) return
+        await upsertCommentFromServer(row)
+        return
+      }
+      if (payload.eventType === 'DELETE') {
+        const rowId = (payload.old?.['id'] ?? payload.new?.['id']) as string | undefined
+        if (!rowId) return
+        // Comments table has no _deleted column; hard-delete on server-echo DELETE.
+        await mutate('DELETE FROM comments WHERE id = ?', [rowId] as never[])
+      }
+      return
+    }
+
+    const table = rawTable as SyncTable
 
     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
       const row = payload.new

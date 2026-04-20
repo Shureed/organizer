@@ -339,6 +339,48 @@ export async function upsertFromServer(
   await applyRows(table, [row], mode)
 }
 
+// ── Comment upsert (realtime apply) ──────────────────────────────────────────
+
+/**
+ * Upsert a single comments row from a realtime payload.
+ *
+ * Comments are append-only with no _deleted column, but we still need to
+ * handle the case where an optimistic local insert (via useMutations.postComment)
+ * races the realtime echo — using ON CONFLICT(id) DO NOTHING dedups by the
+ * client-generated UUID without clobbering the optimistic _dirty=1 row.
+ */
+export async function upsertCommentFromServer(
+  row: Record<string, unknown>,
+): Promise<void> {
+  const now = Date.now()
+  await mutate(
+    `INSERT INTO comments
+      (id, user_id, entity_type, entity_id, body, actor, parent_comment_id, created_at, _synced_at, _dirty)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+     ON CONFLICT(id) DO UPDATE SET
+       user_id           = excluded.user_id,
+       entity_type       = excluded.entity_type,
+       entity_id         = excluded.entity_id,
+       body              = excluded.body,
+       actor             = excluded.actor,
+       parent_comment_id = excluded.parent_comment_id,
+       created_at        = excluded.created_at,
+       _synced_at        = excluded._synced_at,
+       _dirty            = 0`,
+    binds([
+      row['id'],
+      row['user_id'] ?? null,
+      row['entity_type'],
+      row['entity_id'],
+      row['body'],
+      row['actor'],
+      row['parent_comment_id'] ?? null,
+      row['created_at'],
+      now,
+    ]),
+  )
+}
+
 // ── Full backfill ─────────────────────────────────────────────────────────────
 
 /**

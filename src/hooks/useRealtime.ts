@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { sliceLoaders, loadAll } from './useDataLoader'
+import { sliceLoaders, loadAll, invalidateCommentsFor } from './useDataLoader'
 import { syncAll } from '../sync/pull'
 import { applyRealtime } from '../sync/apply'
 import { isSqliteAvailable } from '../sync/client'
@@ -37,6 +37,9 @@ const ROUTING: Record<string, SliceKey[]> = {
 // Per-slice debounce timers — coalesces rapid multi-row events into one fetch.
 const timers = new Map<SliceKey, number>()
 
+// Per-comments-slice debounce timers — keyed dynamically per (entity_type, entity_id).
+const commentsTimers = new Map<string, number>()
+
 function invalidateFor(table: string, _payload: unknown): void {
   for (const slice of ROUTING[table] ?? []) {
     const prev = timers.get(slice)
@@ -49,6 +52,33 @@ function invalidateFor(table: string, _payload: unknown): void {
       }, 150),
     )
   }
+}
+
+/**
+ * Comments slice invalidation — the slice key is per (entity_type, entity_id),
+ * so we extract those from the realtime payload (new or old row) and debounce
+ * per key.  A single debounce map scoped to comments avoids collisions with
+ * the top-level SliceKey timers.
+ */
+function invalidateComments(payload: {
+  new: Record<string, unknown>
+  old: Record<string, unknown>
+}): void {
+  const row = (payload.new && Object.keys(payload.new).length > 0) ? payload.new : payload.old
+  const entityType = row?.['entity_type'] as string | undefined
+  const entityId = row?.['entity_id'] as string | undefined
+  if (!entityType || !entityId) return
+
+  const key = `comments:${entityType}:${entityId}`
+  const prev = commentsTimers.get(key)
+  if (prev) clearTimeout(prev)
+  commentsTimers.set(
+    key,
+    window.setTimeout(() => {
+      void invalidateCommentsFor(entityType, entityId)
+      commentsTimers.delete(key)
+    }, 150),
+  )
 }
 
 /**
@@ -77,11 +107,19 @@ async function handleRealtimeEvent(
       old: payload.old,
     })
     // Trigger affected slice loaders after local DB is updated.
-    invalidateFor(table, payload)
+    if (table === 'comments') {
+      invalidateComments(payload)
+    } else {
+      invalidateFor(table, payload)
+    }
     return
   }
   // Flag off: existing REST-invalidation path.
-  invalidateFor(table, payload)
+  if (table === 'comments') {
+    invalidateComments(payload)
+  } else {
+    invalidateFor(table, payload)
+  }
 }
 
 // ── Reconnect reconciliation ────────────────────────────────────────────────────────
@@ -143,6 +181,20 @@ export function useRealtime(session: Session | null): void {
         if (status === 'SUBSCRIBED') void onRejoin()
       })
 
+    // Subscribe to all comments events; filtering happens in invalidateComments
+    // where we extract entity_type + entity_id from the payload.
+    const comments = supabase
+      .channel('rt:comments')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'comments' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (p: any) => void handleRealtimeEvent('comments', p),
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') void onRejoin()
+      })
+
     // Visibility reconciliation: if the tab was hidden ≥ 60 s, flush all
     // slices on return to avoid stale UI from missed realtime events.
     // When SQLite is on, run syncAll() first then loadAll() so the local DB
@@ -170,6 +222,7 @@ export function useRealtime(session: Session | null): void {
     return () => {
       supabase.removeChannel(action)
       supabase.removeChannel(inbox)
+      supabase.removeChannel(comments)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [session?.user.id]) // eslint-disable-line react-hooks/exhaustive-deps
