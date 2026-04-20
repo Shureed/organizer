@@ -17,7 +17,7 @@ export function IssuesView() {
   const { data, ui, patchUI } = useAppStore()
 
   useEffect(() => { loadIssuesView() }, [])
-  useAutoRefresh(loadIssuesView, 30000)
+  useAutoRefresh(loadIssuesView, 300000)
 
   // Filter to issue types only
   const issues = data.tasks.filter((t) => t.type && !TASK_TYPES_EXCLUDED.has(t.type))

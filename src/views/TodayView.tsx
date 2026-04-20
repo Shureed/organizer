@@ -124,7 +124,7 @@ export function TodayView() {
   const [showAddTask, setShowAddTask] = useState(false)
 
   useEffect(() => { loadTodayView() }, [])
-  useAutoRefresh(loadTodayView, 30000)
+  useAutoRefresh(loadTodayView, 300000)
 
   const today = getTodayStr()
 
