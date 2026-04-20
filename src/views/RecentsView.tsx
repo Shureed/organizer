@@ -1,13 +1,14 @@
 import { useEffect } from 'react'
 import { useDataStore, useUIStore } from '../store/appState'
 import { RecentItem } from '../components/recents/RecentItem'
-import { loadRecentsView } from '../hooks/useDataLoader'
+import { loadRecentsView, useAutoRefresh } from '../hooks/useDataLoader'
 
 export function RecentsView() {
   const recentItems = useDataStore((s) => s.data.recentItems)
   const patchUI = useUIStore((s) => s.patchUI)
 
   useEffect(() => { loadRecentsView() }, [])
+  useAutoRefresh(loadRecentsView, 300000)
 
   return (
     <div
