@@ -19,6 +19,7 @@ import { useUIStore, useDataStore } from './store/appState'
 import { scheduleSearchRebuild, useSearch } from './hooks/useSearch'
 import { LoadingSpinner } from './components/LoadingSpinner'
 import { OfflineIndicator } from './components/OfflineIndicator'
+import { SyncProgress } from './components/SyncProgress'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import './App.css'
 
@@ -261,6 +262,7 @@ function MainApp({ session }: MainAppProps) {
       className="min-h-screen flex flex-col"
     >
       <OfflineIndicator />
+      <SyncProgress />
       <UpdatePrompt />
       {/* Top search bar */}
       <div

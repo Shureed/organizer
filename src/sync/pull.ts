@@ -28,7 +28,7 @@
 
 import type { SqlBindings } from './db.worker'
 import { supabase } from '../lib/supabase'
-import { mutate, query } from './client'
+import { mutate, query, checkQuotaAndEvict, registerQuotaCheck } from './client'
 
 /** Cast an array of mixed values to the BindingSpec array type SQLite expects. */
 function binds(arr: unknown[]): SqlBindings {
@@ -348,6 +348,7 @@ export async function upsertFromServer(
  */
 async function fullBackfill(table: SyncTable): Promise<void> {
   let cursor: string | null = null
+  let totalFetched = 0
 
   for (;;) {
     let builder = supabase
@@ -367,6 +368,16 @@ async function fullBackfill(table: SyncTable): Promise<void> {
 
     const rows = (data ?? []) as Record<string, unknown>[]
     await applyRows(table, rows)
+
+    totalFetched += rows.length
+
+    // Emit progress event for T13 UI.
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('sync-progress', {
+        detail: { table, fetched: totalFetched },
+      })
+      window.dispatchEvent(event)
+    }
 
     if (rows.length < PAGE_SIZE) break // last page
 
@@ -610,6 +621,9 @@ export async function pullActiveJoinsFor(ids: string[]): Promise<void> {
  *   4. fullBackfill('inbox') — inbox rows
  *
  * Called when the local DB is empty (first run or Safari 7-day eviction).
+ * Treats empty OPFS as a cold-start; does not throw on first page (§1.4 #2).
+ * Emits 'sync-complete' event when finished (for T13 UI).
+ * Calls quota check and registers hourly checks (T15).
  */
 export async function initialSync(): Promise<void> {
   await fullBackfill('action_node')
@@ -620,6 +634,17 @@ export async function initialSync(): Promise<void> {
   const now = new Date().toISOString()
   await setMeta('last_pull_action_node', now)
   await setMeta('last_pull_inbox', now)
+
+  // T15: Check quota and evict old comments if needed
+  await checkQuotaAndEvict()
+
+  // T15: Register hourly quota checks
+  registerQuotaCheck()
+
+  // Emit completion event for T13 UI.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sync-complete'))
+  }
 }
 
 /**
