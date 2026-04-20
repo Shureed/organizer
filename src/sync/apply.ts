@@ -1,5 +1,5 @@
 /**
- * apply.ts — Realtime direct-apply to SQLite (master-P6 PR-C T11)
+ * apply.ts — Realtime direct-apply to SQLite (master-P6 PR-C T11 + T9.5 fix)
  *
  * applyRealtime(payload) receives a postgres_changes payload from Supabase
  * realtime and applies it to the local SQLite DB with the LWW guard from
@@ -8,6 +8,12 @@
  * INSERT / UPDATE: UPSERT with LWW WHERE clause (excluded.updated_at > local
  * OR local._dirty = 0).  Dirty local rows with a later optimistic updated_at
  * survive the upsert.
+ *
+ * T9.5 fix: after an action_node INSERT/UPDATE, fire-and-forget
+ * pullActiveJoinsFor([id]) to refresh join cols (project_name / space_name /
+ * space_path) from the server view.  This ensures the local row has the join
+ * cols populated even when the realtime payload comes from the base table
+ * (which doesn't carry those cols).
  *
  * DELETE: Set _deleted = 1 for rows originating from the server (origin =
  * pull or apply); hard-DELETE for rows that were never synced (no _synced_at).
@@ -19,7 +25,7 @@
  */
 
 import { isSqliteAvailable, mutate } from './client'
-import { upsertFromServer } from './pull'
+import { upsertFromServer, pullActiveJoinsFor } from './pull'
 import type { SyncTable } from './pull'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -57,6 +63,13 @@ export async function applyRealtime(payload: RealtimePayload): Promise<void> {
       const row = payload.new
       if (!row || !row['id']) return
       await upsertFromServer(table, row)
+
+      // T9.5 fix: fire-and-forget join-col refresh for action_node rows so
+      // project_name / space_name / space_path are populated even when the
+      // realtime payload comes from the base table (no join cols in payload).
+      if (table === 'action_node') {
+        void pullActiveJoinsFor([row['id'] as string]).catch(() => { /* best-effort */ })
+      }
       return
     }
 
