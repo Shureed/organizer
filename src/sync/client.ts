@@ -120,6 +120,7 @@ export async function ready(): Promise<boolean> {
  * Called from useAuth's SIGNED_OUT branch in PR-C so sign-out wipes local data.
  */
 export async function destroy(): Promise<void> {
+  unregisterQuotaCheck()
   if (_clientPromise === null) return
   try {
     const client = await _clientPromise
@@ -128,3 +129,72 @@ export async function destroy(): Promise<void> {
     _clientPromise = null
   }
 }
+
+// ---------------------------------------------------------------------------
+// Quota guard + comment eviction (T15)
+// ---------------------------------------------------------------------------
+
+let _quotaCheckTimer: ReturnType<typeof setInterval> | null = null
+
+/**
+ * Check storage quota and evict old comments if usage exceeds 80%.
+ * Called after initialSync() completion and once per hour via setInterval.
+ * Gracefully handles StorageManager unavailability (older browsers).
+ */
+async function checkQuotaAndEvict(): Promise<void> {
+  if (!navigator.storage?.estimate) {
+    // StorageManager unavailable — skip silently
+    return
+  }
+
+  try {
+    const { usage, quota } = await navigator.storage.estimate()
+    if (usage === undefined || quota === undefined) return
+
+    const ratio = quota > 0 ? usage / quota : 0
+
+    if (ratio > 0.8) {
+      // Evict comments older than 90 days
+      const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000
+      await mutate(
+        'DELETE FROM comments WHERE created_at < ?',
+        [ninetyDaysAgo] as unknown as SqlBindings,
+      )
+
+      if (import.meta.env.VITE_SYNC_DEBUG === 'true') {
+        console.info(`[sync] quota eviction: deleted comments older than 90 days`)
+      }
+    }
+  } catch (err) {
+    // Silently fail if quota check or eviction fails
+    if (import.meta.env.VITE_SYNC_DEBUG === 'true') {
+      console.warn('[sync] quota check failed:', err)
+    }
+  }
+}
+
+/**
+ * Register hourly quota checks. Called at module init.
+ * Call destroy() to unregister.
+ */
+export function registerQuotaCheck(): void {
+  if (_quotaCheckTimer !== null) return
+
+  // Set up hourly interval
+  _quotaCheckTimer = setInterval(() => {
+    void checkQuotaAndEvict()
+  }, 60 * 60 * 1000) // 1 hour
+}
+
+/**
+ * Unregister quota checks. Called on destroy() or logout.
+ */
+function unregisterQuotaCheck(): void {
+  if (_quotaCheckTimer !== null) {
+    clearInterval(_quotaCheckTimer)
+    _quotaCheckTimer = null
+  }
+}
+
+// Export for pull.ts to call after initialSync
+export { checkQuotaAndEvict }
