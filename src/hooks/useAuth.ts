@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { setCacheUserScope, clearSupabaseRestCache } from '../lib/pwa'
 
 export interface UseAuthReturn {
   session: Session | null
@@ -18,12 +19,28 @@ export function useAuth(): UseAuthReturn {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      // Partition the Supabase REST cache by the current user's id so that
+      // cached rows from one account are never served to another.
+      setCacheUserScope(session?.user.id ?? null)
       setSession(session)
       setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          // Wipe the cache BEFORE clearing the scope so any in-flight
+          // cacheKeyWillBeUsed calls still use the old uid as the key,
+          // matching the entries we're about to delete.
+          await clearSupabaseRestCache()
+          setCacheUserScope(null)
+        } else if (session) {
+          // On sign-in or token refresh, update the scope.  If the user id
+          // differs from the previous scope (account switch), also wipe
+          // stale entries from the previous user before setting the new scope.
+          await clearSupabaseRestCache()
+          setCacheUserScope(session.user.id)
+        }
         setSession(session)
         setLoading(false)
       }
