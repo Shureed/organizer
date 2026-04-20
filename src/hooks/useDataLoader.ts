@@ -211,15 +211,23 @@ export type SliceKey =
   | 'chainStatus'
   | 'inbox'
 
+/**
+ * Central slice loader dispatch with per-slice error catch (T9 plan §T9.5).
+ *
+ * Every loader is wrapped so a silent rejection never masks UI breakage.
+ * Logs [sliceLoader:<name>] failed with the error when a slice fails.
+ * This is the check that would have caught the original PR-C bug (empty slices
+ * with no visible error).
+ */
 export const sliceLoaders: Record<SliceKey, (force?: boolean) => Promise<void>> = {
-  tasks: loadTasks,
-  projects: loadProjects,
-  closedTasks: loadClosedTasks,
-  closedProjects: loadClosedProjects,
-  pinnedDoneTasks: loadPinnedDoneTasks,
-  recentItems: loadRecentItems,
-  chainStatus: loadChainStatus,
-  inbox: loadInbox,
+  tasks: (f) => loadTasks(f).catch((e) => console.error('[sliceLoader:tasks] failed', e)),
+  projects: (f) => loadProjects(f).catch((e) => console.error('[sliceLoader:projects] failed', e)),
+  closedTasks: (f) => loadClosedTasks(f).catch((e) => console.error('[sliceLoader:closedTasks] failed', e)),
+  closedProjects: (f) => loadClosedProjects(f).catch((e) => console.error('[sliceLoader:closedProjects] failed', e)),
+  pinnedDoneTasks: (f) => loadPinnedDoneTasks(f).catch((e) => console.error('[sliceLoader:pinnedDoneTasks] failed', e)),
+  recentItems: (f) => loadRecentItems(f).catch((e) => console.error('[sliceLoader:recentItems] failed', e)),
+  chainStatus: (f) => loadChainStatus(f).catch((e) => console.error('[sliceLoader:chainStatus] failed', e)),
+  inbox: (f) => loadInbox(f).catch((e) => console.error('[sliceLoader:inbox] failed', e)),
 }
 
 // Module-level loadAll — used by useRealtime for reconnect/visibility reconciliation.
