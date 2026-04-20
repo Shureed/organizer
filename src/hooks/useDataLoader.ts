@@ -151,6 +151,48 @@ async function loadChainNodes(originIds: string[], force = false): Promise<void>
   lastFetchedAt.set(key, Date.now())
 }
 
+// ── Invalidation bus exports ────────────────────────────────────────────────────
+// SliceKey + sliceLoaders let useRealtime fan out a realtime payload to the
+// correct force-refetch functions without importing each loader individually.
+// Trade-off: a flat map is simpler than a dynamic dispatch pattern, and all
+// loaders are already module-level so there's no closure/hook-context concern.
+
+export type SliceKey =
+  | 'tasks'
+  | 'projects'
+  | 'closedTasks'
+  | 'closedProjects'
+  | 'pinnedDoneTasks'
+  | 'recentItems'
+  | 'chainStatus'
+  | 'inbox'
+
+export const sliceLoaders: Record<SliceKey, (force?: boolean) => Promise<void>> = {
+  tasks: loadTasks,
+  projects: loadProjects,
+  closedTasks: loadClosedTasks,
+  closedProjects: loadClosedProjects,
+  pinnedDoneTasks: loadPinnedDoneTasks,
+  recentItems: loadRecentItems,
+  chainStatus: loadChainStatus,
+  inbox: loadInbox,
+}
+
+// Module-level loadAll — used by useRealtime for reconnect/visibility reconciliation.
+// Mirrors the hook's loadAll but callable outside of hook context.
+export function loadAll(): Promise<unknown[]> {
+  return Promise.all([
+    loadTasks(true),
+    loadProjects(true),
+    loadClosedTasks(true),
+    loadClosedProjects(true),
+    loadInbox(true),
+    loadChainStatus(true),
+    loadPinnedDoneTasks(true),
+    loadRecentItems(true),
+  ])
+}
+
 // ── Per-view composers ──────────────────────────────────────────────────────────
 // Stable module-level exports. Slice loaders dedup within 200ms so shell seed +
 // view loader co-firing collapses to one request per slice.
