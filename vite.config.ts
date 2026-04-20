@@ -41,11 +41,31 @@ export default defineConfig({
         // cacheKeyWillBeUsed plugin below can partition cache keys per user.
         importScripts: ['sw-uid-handler.js'],
         runtimeCaching: [
-          // T12: supabase-rest StaleWhileRevalidate cache retired — SQLite is now
-          // the authoritative read source for authenticated users (plan §4.9).
-          // The cache entry is removed; no fallback rule is added because
-          // unauthenticated first-boot does not hit /rest/v1/* and the SQLite
-          // flag gates all authenticated reads through the local DB.
+          // Supabase REST — StaleWhileRevalidate, 24 h TTL, 50-entry cap.
+          // Must be first (first-match wins). POST/PATCH/DELETE are excluded via method guard.
+          // Cache key is partitioned per-user via cacheKeyWillBeUsed (T6, __SB_UID__ global).
+          {
+            urlPattern: ({ url, request }: { url: URL; request: Request }) =>
+              request.method === 'GET' &&
+              url.hostname.endsWith('.supabase.co') &&
+              url.pathname.startsWith('/rest/v1/'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'supabase-rest',
+              expiration: { maxAgeSeconds: 86400, maxEntries: 50 },
+              cacheableResponse: { statuses: [200] },
+              plugins: [
+                {
+                  cacheKeyWillBeUsed: async ({ request }: { request: Request }) => {
+                    const uid = (globalThis as unknown as { __SB_UID__?: string }).__SB_UID__ ?? 'anon'
+                    const url = new URL(request.url)
+                    url.searchParams.set('__u', uid)
+                    return url.toString()
+                  },
+                },
+              ],
+            },
+          },
           {
             urlPattern: /\/organizer\/assets\/.*\.(woff2?|ttf)$/,
             handler: 'CacheFirst',
