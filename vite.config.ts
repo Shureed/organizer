@@ -36,7 +36,36 @@ export default defineConfig({
         skipWaiting: false,
         clientsClaim: false,
         cleanupOutdatedCaches: true,
+        // sw-uid-handler.js listens for SET_CACHE_UID messages from the page
+        // and writes __SB_UID__ into the SW's globalThis so the
+        // cacheKeyWillBeUsed plugin below can partition cache keys per user.
+        importScripts: ['sw-uid-handler.js'],
         runtimeCaching: [
+          // Supabase REST — StaleWhileRevalidate, 24 h TTL, 50-entry cap.
+          // Must be first (first-match wins). POST/PATCH/DELETE are excluded via method guard.
+          // Cache key is partitioned per-user via cacheKeyWillBeUsed (T6, __SB_UID__ global).
+          {
+            urlPattern: ({ url, request }: { url: URL; request: Request }) =>
+              request.method === 'GET' &&
+              url.hostname.endsWith('.supabase.co') &&
+              url.pathname.startsWith('/rest/v1/'),
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'supabase-rest',
+              expiration: { maxAgeSeconds: 86400, maxEntries: 50 },
+              cacheableResponse: { statuses: [200] },
+              plugins: [
+                {
+                  cacheKeyWillBeUsed: async ({ request }: { request: Request }) => {
+                    const uid = (globalThis as unknown as { __SB_UID__?: string }).__SB_UID__ ?? 'anon'
+                    const url = new URL(request.url)
+                    url.searchParams.set('__u', uid)
+                    return url.toString()
+                  },
+                },
+              ],
+            },
+          },
           {
             urlPattern: /\/organizer\/assets\/.*\.(woff2?|ttf)$/,
             handler: 'CacheFirst',
@@ -54,7 +83,6 @@ export default defineConfig({
               expiration: { maxEntries: 40, maxAgeSeconds: 2592000 /* 30 d */ },
             },
           },
-          // Supabase REST rule added in T5 (first-match wins; prepended above these two).
         ],
       },
       devOptions: { enabled: false },
