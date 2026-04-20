@@ -30,7 +30,7 @@ export default defineConfig({
           'icon-512.png',
           'manifest.json',
         ],
-        globIgnores: ['stats.html', 'assets/*.woff', 'assets/*.woff2', 'assets/utils-*.js'],
+        globIgnores: ['stats.html', 'assets/*.woff', 'assets/*.woff2', 'assets/utils-*.js', 'assets/*.wasm'],
         navigateFallback: '/organizer/index.html',
         navigateFallbackDenylist: [/^\/organizer\/api\//],   // reserved; no such route today
         skipWaiting: false,
@@ -76,11 +76,13 @@ export default defineConfig({
             },
           },
           {
-            urlPattern: /\/organizer\/assets\/.*\.js$/,
+            // T4: include .wasm alongside .js so sqlite3.wasm gets runtime-cached.
+            // maxEntries bumped 40 → 60 to accommodate the worker + wasm chunks.
+            urlPattern: /\/organizer\/assets\/.*\.(js|wasm)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'view-chunks',
-              expiration: { maxEntries: 40, maxAgeSeconds: 2592000 /* 30 d */ },
+              expiration: { maxEntries: 60, maxAgeSeconds: 2592000 /* 30 d */ },
             },
           },
         ],
@@ -89,6 +91,15 @@ export default defineConfig({
     }),
     visualizer({ filename: 'dist/stats.html', template: 'treemap', gzipSize: true, brotliSize: true }),
   ],
+  // T1: exclude sqlite-wasm from Vite's dep optimizer — it ships its own wasm
+  // and must not be pre-bundled.
+  optimizeDeps: {
+    exclude: ['@sqlite.org/sqlite-wasm'],
+  },
+  // T1: build workers as ES modules (required for dynamic import inside the worker)
+  worker: {
+    format: 'es',
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
