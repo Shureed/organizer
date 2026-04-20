@@ -151,3 +151,36 @@ export async function sqliteChainNodes(originIds: string[]): Promise<void> {
   }
   useDataStore.getState().setData({ chainNodesByOrigin: grouped })
 }
+
+// ── Comments (per-entity) ────────────────────────────────────────────────────
+
+export interface CommentDbRow {
+  id: string
+  actor: string
+  body: string
+  created_at: string
+  entity_type: string
+  entity_id: string
+  parent_comment_id: string | null
+}
+
+/**
+ * Read comments for one entity from the local SQLite mirror.
+ * Filters out tombstoned rows (_deleted = 0) — the comments table does not
+ * currently carry _deleted, but the condition is safe (always true) and
+ * future-proofs the query if the column is added later.
+ */
+export async function getComments(
+  entityType: string,
+  entityId: string,
+): Promise<CommentDbRow[]> {
+  const rows = await query<CommentDbRow>(
+    `SELECT id, actor, body, created_at, entity_type, entity_id, parent_comment_id
+       FROM comments
+      WHERE entity_type = ?
+        AND entity_id = ?
+      ORDER BY created_at ASC`,
+    [entityType, entityId] as unknown as SqlBindings,
+  )
+  return rows
+}

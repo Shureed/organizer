@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useMutations } from '../../hooks/useMutations'
 import { useDataLoader } from '../../hooks/useDataLoader'
+import { useComments } from '../../hooks/useComments'
 import {
   Dialog,
   DialogContent,
@@ -10,7 +11,6 @@ import {
 } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { CommentSection } from '../shared/CommentSection'
-import type { CommentRow } from '../shared/CommentSection'
 import { SourceBadge } from './SourceBadge'
 import type { Database } from '../../types/database.types'
 
@@ -33,17 +33,16 @@ function formatDateTime(iso: string): string {
 
 export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
   const [item, setItem] = useState<InboxRow | null>(null)
-  const [comments, setComments] = useState<CommentRow[]>([])
   const [commentText, setCommentText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [dismissing, setDismissing] = useState(false)
-  const { archiveInbox, postComment } = useMutations()
+  const { archiveInbox } = useMutations()
   const { refreshInbox } = useDataLoader()
+  const { comments, post } = useComments('inbox', itemId)
 
   useEffect(() => {
     if (!itemId) {
       setItem(null)
-      setComments([])
       return
     }
 
@@ -56,18 +55,7 @@ export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
       setItem(data)
     }
 
-    const fetchComments = async () => {
-      const { data } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('entity_type', 'inbox')
-        .eq('entity_id', itemId)
-        .order('created_at', { ascending: true })
-      setComments(data ?? [])
-    }
-
     fetchItem()
-    fetchComments()
   }, [itemId])
 
   const handleDismiss = async () => {
@@ -85,21 +73,13 @@ export function InboxDetailModal({ itemId, onClose }: InboxDetailModalProps) {
   const handleSubmitComment = async () => {
     if (!item || !commentText.trim()) return
     setSubmitting(true)
+    const body = commentText.trim()
+    setCommentText('')
     try {
-      await postComment({
-        entity_type: 'inbox',
-        entity_id: item.id,
-        actor: 'shureed',
-        body: commentText.trim(),
-      })
-      setCommentText('')
-      const { data } = await supabase
-        .from('comments')
-        .select('*')
-        .eq('entity_type', 'inbox')
-        .eq('entity_id', item.id)
-        .order('created_at', { ascending: true })
-      setComments(data ?? [])
+      await post(body)
+    } catch {
+      // Restore draft so the user doesn't lose it on failure.
+      setCommentText(body)
     } finally {
       setSubmitting(false)
     }
