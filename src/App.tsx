@@ -12,6 +12,9 @@ import {
 import { useAuth } from './hooks/useAuth'
 import { useDataLoader, loadShellSeed } from './hooks/useDataLoader'
 import { useRealtime } from './hooks/useRealtime'
+import { initialSync, syncAll } from './sync/pull'
+import { query } from './sync/client'
+import { resetInFlight } from './sync/outbox'
 import { useUIStore, useDataStore } from './store/appState'
 import { scheduleSearchRebuild, useSearch } from './hooks/useSearch'
 import { LoadingSpinner } from './components/LoadingSpinner'
@@ -214,6 +217,28 @@ function MainApp({ session }: MainAppProps) {
   useEffect(() => {
     loadShellSeed()
   }, [])
+
+  // SQLite bootstrap: initialSync on empty DB, deltaPull otherwise (T9 plan §4.5)
+  useEffect(() => {
+    if (import.meta.env.VITE_SQLITE_READS !== 'true') return
+    ;(async () => {
+      try {
+        // Reset any in-flight outbox entries from a previous hard-kill.
+        await resetInFlight()
+        const [{ count }] = await query<{ count: number }>(
+          'SELECT COUNT(*) as count FROM action_node',
+        )
+        if (count === 0) {
+          await initialSync()
+        } else {
+          await syncAll()
+        }
+      } catch (err) {
+        console.error('[App] SQLite bootstrap failed', err)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.user.id])
 
   // Build search index per slice (idle-coalesced)
   useEffect(() => { scheduleSearchRebuild('tasks', data) }, [data.tasks])
