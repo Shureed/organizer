@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAppStore } from '../store/appState'
-import { useDataLoader, loadInboxView, useAutoRefresh } from '../hooks/useDataLoader'
+import { useDataLoader, loadInboxView } from '../hooks/useDataLoader'
 import { useMutations } from '../hooks/useMutations'
 import { InboxItem } from '../components/inbox/InboxItem'
 import { Button } from '../components/ui/button'
@@ -71,7 +71,6 @@ export function InboxView() {
   const { addInbox } = useMutations()
 
   useEffect(() => { loadInboxView() }, [])
-  useAutoRefresh(loadInboxView, 300000)
 
   const [inboxOpen, setInboxOpen] = useState(true)
   const [captureOpen, setCaptureOpen] = useState(false)
