@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useMutations } from './useMutations'
 import { useDataLoader } from './useDataLoader'
+import { useComments } from './useComments'
 import type { CommentRow } from '../components/shared/CommentSection'
 import type { Database } from '../types/database.types'
 
@@ -79,7 +80,6 @@ export interface UseTaskDetailResult {
 export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
   const [task, setTask] = useState<TaskRow | null>(null)
   const [subtasks, setSubtasks] = useState<SubtaskRow[]>([])
-  const [comments, setComments] = useState<CommentRow[]>([])
   const [related, setRelated] = useState<RelatedItem[]>([])
   const [relatedOpen, setRelatedOpen] = useState(false)
   const [parentNode, setParentNode] = useState<{ id: string; name: string; type: string } | null>(null)
@@ -98,14 +98,18 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
 
   const [activeTaskId, setActiveTaskId] = useState<string | null>(taskId)
 
-  const { changeTaskStatus, postComment, toggleTaskPin } = useMutations()
+  const { changeTaskStatus, toggleTaskPin } = useMutations()
   const { refreshTasks } = useDataLoader()
+
+  // Comments come from the shared per-entity slice (realtime-backed).
+  // Self-posts dedup by client-generated UUID; realtime echo is a no-op.
+  const { comments, post: postCommentShared } = useComments('task', activeTaskId)
 
   const fetchTask = useCallback(async (id: string) => {
     setLoading(true)
     setError(null)
     try {
-      const [taskRes, subtasksRes, commentsRes] = await Promise.all([
+      const [taskRes, subtasksRes] = await Promise.all([
         supabase.from('action_node').select('*').eq('id', id).single(),
         supabase
           .from('action_node')
@@ -113,12 +117,6 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
           .eq('parent_id', id)
           .eq('archived', false)
           .order('status', { ascending: true })
-          .order('created_at', { ascending: true }),
-        supabase
-          .from('comments')
-          .select('id, actor, body, created_at')
-          .eq('entity_type', 'task')
-          .eq('entity_id', id)
           .order('created_at', { ascending: true }),
       ])
 
@@ -130,7 +128,7 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
       setPriority(t.priority ?? '')
       setBucket(t.bucket ?? '')
       setSubtasks((subtasksRes.data ?? []) as SubtaskRow[])
-      setComments((commentsRes.data ?? []) as CommentRow[])
+      // comments handled by useComments hook; no local state.
 
       if (t.parent_id) {
         const { data: parentData } = await supabase
@@ -226,39 +224,18 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
   const handleCommentSubmit = useCallback(async (scrollToBottom: () => void) => {
     if (!activeTaskId || !commentBody.trim()) return
     const body = commentBody.trim()
-    const optimistic: CommentRow = {
-      id: 'pending',
-      actor: 'shureed',
-      body,
-      created_at: new Date().toISOString(),
-      pending: true,
-    }
-    setComments(prev => [...prev, optimistic])
     setCommentBody('')
     setSubmittingComment(true)
     try {
-      await postComment({
-        entity_type: 'task',
-        entity_id: activeTaskId,
-        actor: 'shureed',
-        body,
-      })
-      const { data } = await supabase
-        .from('comments')
-        .select('id, actor, body, created_at')
-        .eq('entity_type', 'task')
-        .eq('entity_id', activeTaskId)
-        .order('created_at', { ascending: true })
-      setComments((data ?? []) as CommentRow[])
+      await postCommentShared(body)
       scrollToBottom()
     } catch (e: unknown) {
-      setComments(prev => prev.filter(c => c.id !== 'pending'))
       setCommentBody(body)
       setError(e instanceof Error ? e.message : 'Failed to post comment')
     } finally {
       setSubmittingComment(false)
     }
-  }, [activeTaskId, commentBody, postComment])
+  }, [activeTaskId, commentBody, postCommentShared])
 
   const handleTogglePin = useCallback(async () => {
     if (!activeTaskId || pinning || !task) return

@@ -11,7 +11,9 @@ import {
   sqlitePinnedDoneTasks,
   sqliteRecentItems,
   sqliteChainNodes,
+  getComments,
 } from '../sync/queries'
+import type { CommentRow } from '../components/shared/CommentSection'
 import type { ChainNode } from '../store/appState'
 
 // ── Flag helpers ─────────────────────────────────────────────────────────────
@@ -310,4 +312,93 @@ export function useDataLoader() {
     loadPinnedDoneTasks,
     loadRecentItems,
   }
+}
+
+// ── Comments slice (per-entity dynamic loader) ───────────────────────────────
+// Comments are keyed on (entity_type, entity_id), so a static SliceKey-style
+// entry doesn't fit.  Instead we keep a per-key cache + subscriber map so
+// useComments can subscribe, and realtime (T1 invalidateComments) can force
+// a refetch via invalidateCommentsFor(entityType, entityId).
+
+type CommentsSliceKey = string // `${entity_type}:${entity_id}`
+
+const commentsCache = new Map<CommentsSliceKey, CommentRow[]>()
+const commentsSubs = new Map<CommentsSliceKey, Set<() => void>>()
+
+function commentsKey(entityType: string, entityId: string): CommentsSliceKey {
+  return `${entityType}:${entityId}`
+}
+
+function notifyCommentsSubs(key: CommentsSliceKey): void {
+  const subs = commentsSubs.get(key)
+  if (!subs) return
+  for (const fn of subs) fn()
+}
+
+export function subscribeComments(
+  entityType: string,
+  entityId: string,
+  fn: () => void,
+): () => void {
+  const key = commentsKey(entityType, entityId)
+  let set = commentsSubs.get(key)
+  if (!set) {
+    set = new Set()
+    commentsSubs.set(key, set)
+  }
+  set.add(fn)
+  return () => {
+    set!.delete(fn)
+    if (set!.size === 0) commentsSubs.delete(key)
+  }
+}
+
+export function getCommentsCache(
+  entityType: string,
+  entityId: string,
+): CommentRow[] | undefined {
+  return commentsCache.get(commentsKey(entityType, entityId))
+}
+
+/** Load comments for a single entity; SQLite when available, REST otherwise. */
+export async function commentsFor(
+  entityType: string,
+  entityId: string,
+): Promise<CommentRow[]> {
+  const key = commentsKey(entityType, entityId)
+
+  let rows: CommentRow[]
+  if (await sqliteReady()) {
+    const dbRows = await getComments(entityType, entityId)
+    rows = dbRows.map((r) => ({
+      id: r.id,
+      actor: r.actor,
+      body: r.body,
+      created_at: r.created_at,
+    }))
+  } else {
+    const { data } = await supabase
+      .from('comments')
+      .select('id, actor, body, created_at')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .eq('entity_type' as any, entityType)
+      .eq('entity_id', entityId)
+      .order('created_at', { ascending: true })
+    rows = (data ?? []) as CommentRow[]
+  }
+
+  commentsCache.set(key, rows)
+  notifyCommentsSubs(key)
+  return rows
+}
+
+/**
+ * Realtime-triggered invalidation for a per-entity comments slice.
+ * Called from useRealtime (T1 invalidateComments) after the SQLite apply.
+ */
+export function invalidateCommentsFor(
+  entityType: string,
+  entityId: string,
+): Promise<CommentRow[]> {
+  return commentsFor(entityType, entityId)
 }

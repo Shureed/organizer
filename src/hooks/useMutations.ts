@@ -63,6 +63,7 @@ export interface AddInboxInput {
 }
 
 export interface PostCommentInput {
+  id?: string
   entity_type: ItemType
   entity_id: string
   actor: ActivityActor
@@ -342,11 +343,11 @@ export function useMutations() {
     )
   }
 
-  const postComment = async (comment: PostCommentInput) => {
+  const postComment = async (comment: PostCommentInput): Promise<string> => {
     const useSQLite = await sqliteReady()
+    const id = comment.id ?? crypto.randomUUID()
 
     if (useSQLite) {
-      const id = crypto.randomUUID()
       const now = new Date().toISOString()
       // Insert locally (append-only; no conflict path)
       await sqliteMutate(
@@ -369,16 +370,18 @@ export function useMutations() {
         },
       })
       if (navigator.onLine) void triggerReplay()
-      return
+      return id
     }
 
     const { error } = await supabase.from('comments').insert({
+      id,
       entity_type: comment.entity_type,
       entity_id: comment.entity_id,
       actor: comment.actor,
       body: comment.body,
     })
     if (error) throw error
+    return id
   }
 
   return { changeTaskStatus, archiveInbox, togglePin, toggleTaskPin, addTask, addInbox, postComment }
