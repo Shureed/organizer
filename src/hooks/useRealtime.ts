@@ -1,19 +1,60 @@
 import { useEffect } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { sliceLoaders, loadAll } from './useDataLoader'
+import type { SliceKey } from './useDataLoader'
 
-// Stubs — replaced in T3 / T4
-function invalidateFor(_table: string, _payload: unknown): void {
-  // no-op until T3 wires the invalidation bus
+// ── Invalidation bus ────────────────────────────────────────────────────────────
+// Broad fan-out over payload diffing: 7 parallel refetches @ ~40 ms each is
+// cheap; narrowing by payload.new.type/status risks wrong-slice-skipped
+// correctness bugs for ~200 ms saved. Intentional — do not narrow.
+const ROUTING: Record<string, SliceKey[]> = {
+  action_node: [
+    'tasks',
+    'projects',
+    'closedTasks',
+    'closedProjects',
+    'pinnedDoneTasks',
+    'recentItems',
+    'chainStatus',
+  ],
+  inbox: ['inbox'],
 }
+
+// Per-slice debounce timers — coalesces rapid multi-row events into one fetch.
+const timers = new Map<SliceKey, number>()
+
+function invalidateFor(table: string, _payload: unknown): void {
+  for (const slice of ROUTING[table] ?? []) {
+    const prev = timers.get(slice)
+    if (prev) clearTimeout(prev)
+    timers.set(
+      slice,
+      window.setTimeout(() => {
+        void sliceLoaders[slice](true)
+        timers.delete(slice)
+      }, 150),
+    )
+  }
+}
+
+// ── Reconnect reconciliation ────────────────────────────────────────────────────
+// On channel rejoin we flush all slices once (if we've already subscribed at
+// least once — the very first SUBSCRIBED fires during initial mount when data
+// is already being loaded by the shell seed, so we skip it).
+let hasSubscribedOnce = false
 
 function onRejoin(): void {
-  // no-op until T4 wires reconnect reconciliation
+  if (hasSubscribedOnce) {
+    void loadAll()
+  }
+  hasSubscribedOnce = true
 }
 
+// ── useRealtime ─────────────────────────────────────────────────────────────────
 export function useRealtime(session: Session | null): void {
-  // Channel setup — keyed on user.id so token rotation does NOT tear down channels.
-  // The second effect below handles token rotation via setAuth.
+  // Channel setup — keyed on user.id so token rotation does NOT tear down
+  // channels. The second effect handles token rotation via setAuth.
   useEffect(() => {
     if (!session) return
 
@@ -41,9 +82,27 @@ export function useRealtime(session: Session | null): void {
         if (status === 'SUBSCRIBED') onRejoin()
       })
 
+    // Visibility reconciliation: if the tab was hidden ≥ 60 s, flush all
+    // slices on return to avoid stale UI from missed events.
+    let hiddenAt: number | null = null
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        hiddenAt = Date.now()
+      } else {
+        if (hiddenAt !== null && Date.now() - hiddenAt >= 60_000) {
+          void loadAll()
+        }
+        hiddenAt = null
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisibilityChange)
+
     return () => {
       supabase.removeChannel(action)
       supabase.removeChannel(inbox)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [session?.user.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
