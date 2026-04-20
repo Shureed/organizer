@@ -71,7 +71,7 @@ export function InboxView() {
   const { addInbox } = useMutations()
 
   useEffect(() => { loadInboxView() }, [])
-  useAutoRefresh(loadInboxView, 30000)
+  useAutoRefresh(loadInboxView, 300000)
 
   const [inboxOpen, setInboxOpen] = useState(true)
   const [captureOpen, setCaptureOpen] = useState(false)

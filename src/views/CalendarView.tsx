@@ -43,7 +43,7 @@ export function CalendarView() {
   const { calendarYear, calendarMonth, calendarSelectedDay } = ui
 
   useEffect(() => { loadCalendarView() }, [])
-  useAutoRefresh(loadCalendarView, 30000)
+  useAutoRefresh(loadCalendarView, 300000)
 
   // Today's date string
   const today = useMemo(() => {

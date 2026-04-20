@@ -8,7 +8,7 @@ export function RecentsView() {
   const patchUI = useUIStore((s) => s.patchUI)
 
   useEffect(() => { loadRecentsView() }, [])
-  useAutoRefresh(loadRecentsView, 30000)
+  useAutoRefresh(loadRecentsView, 300000)
 
   return (
     <div
