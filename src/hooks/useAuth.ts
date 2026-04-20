@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { setCacheUserScope, clearSupabaseRestCache } from '../lib/pwa'
+import { destroy as destroySQLite } from '../sync/client'
 
 export interface UseAuthReturn {
   session: Session | null
@@ -29,10 +30,10 @@ export function useAuth(): UseAuthReturn {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_OUT') {
-          // Wipe the cache BEFORE clearing the scope so any in-flight
-          // cacheKeyWillBeUsed calls still use the old uid as the key,
-          // matching the entries we're about to delete.
+          // Wipe the (now-retired) supabase-rest cache and destroy the local
+          // SQLite DB so the next user starts with a clean OPFS slate.
           await clearSupabaseRestCache()
+          await destroySQLite()
           setCacheUserScope(null)
         } else if (session) {
           // On sign-in or token refresh, update the scope.  If the user id

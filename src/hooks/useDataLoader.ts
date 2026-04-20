@@ -1,19 +1,47 @@
-import { useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAppStore } from '../store/appState'
+import { isSqliteAvailable } from '../sync/client'
+import {
+  sqliteTasks,
+  sqliteProjects,
+  sqliteClosedTasks,
+  sqliteClosedProjects,
+  sqliteInbox,
+  sqliteChainStatus,
+  sqlitePinnedDoneTasks,
+  sqliteRecentItems,
+  sqliteChainNodes,
+} from '../sync/queries'
 import type { ChainNode } from '../store/appState'
 
-// Module-scoped dedup map
+// ── Flag helpers ─────────────────────────────────────────────────────────────
+
+const SQLITE_FLAG = import.meta.env.VITE_SQLITE_READS === 'true'
+
+/**
+ * Returns true when the SQLite flag is enabled AND the local DB is available.
+ * Caches the availability check after the first resolution so repeated calls
+ * are synchronous (the promise is the cache).
+ */
+let _sqliteAvailablePromise: Promise<boolean> | null = null
+function sqliteReady(): Promise<boolean> {
+  if (!SQLITE_FLAG) return Promise.resolve(false)
+  return (_sqliteAvailablePromise ??= isSqliteAvailable())
+}
+
+// Module-scoped dedup map — still used by the REST fallback path.
 const lastFetchedAt = new Map<string, number>()
 const DEDUP_MS = 200
 
-// ── Module-level slice loaders ──────────────────────────────────────────────────
+// ── Module-level slice loaders ──────────────────────────────────────────────────────
 // Use store's getState() so these are plain async functions (no hook context needed).
 // This makes the per-view composers below referentially stable module-level exports.
 
 const getSetData = () => useAppStore.getState().setData
 
 export async function loadTasks(force = false): Promise<void> {
+  if (await sqliteReady()) return sqliteTasks()
+
   const key = 'tasks'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
 
@@ -28,6 +56,8 @@ export async function loadTasks(force = false): Promise<void> {
 }
 
 export async function loadProjects(force = false): Promise<void> {
+  if (await sqliteReady()) return sqliteProjects()
+
   const key = 'projects'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
 
@@ -41,6 +71,8 @@ export async function loadProjects(force = false): Promise<void> {
 }
 
 export async function loadClosedTasks(force = false): Promise<void> {
+  if (await sqliteReady()) return sqliteClosedTasks()
+
   const key = 'closedTasks'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
 
@@ -56,6 +88,8 @@ export async function loadClosedTasks(force = false): Promise<void> {
 }
 
 export async function loadClosedProjects(force = false): Promise<void> {
+  if (await sqliteReady()) return sqliteClosedProjects()
+
   const key = 'closedProjects'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
 
@@ -71,6 +105,8 @@ export async function loadClosedProjects(force = false): Promise<void> {
 }
 
 export async function loadInbox(force = false): Promise<void> {
+  if (await sqliteReady()) return sqliteInbox()
+
   const key = 'inbox'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
 
@@ -84,6 +120,8 @@ export async function loadInbox(force = false): Promise<void> {
 }
 
 export async function loadChainStatus(force = false): Promise<void> {
+  if (await sqliteReady()) return sqliteChainStatus()
+
   const key = 'chainStatus'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
 
@@ -96,6 +134,8 @@ export async function loadChainStatus(force = false): Promise<void> {
 }
 
 export async function loadPinnedDoneTasks(force = false): Promise<void> {
+  if (await sqliteReady()) return sqlitePinnedDoneTasks()
+
   const key = 'pinnedDoneTasks'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
 
@@ -112,6 +152,8 @@ export async function loadPinnedDoneTasks(force = false): Promise<void> {
 }
 
 export async function loadRecentItems(force = false): Promise<void> {
+  if (await sqliteReady()) return sqliteRecentItems()
+
   const key = 'recentItems'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
 
@@ -126,9 +168,11 @@ export async function loadRecentItems(force = false): Promise<void> {
   lastFetchedAt.set(key, Date.now())
 }
 
-async function loadChainNodes(originIds: string[], force = false): Promise<void> {
+async function loadChainNodes(originIds: string[], _force = false): Promise<void> {
+  if (await sqliteReady()) return sqliteChainNodes(originIds)
+
   const key = 'chainNodes'
-  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+  if (!_force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
   if (originIds.length === 0) return
 
   const { data, error } = await supabase
@@ -151,7 +195,7 @@ async function loadChainNodes(originIds: string[], force = false): Promise<void>
   lastFetchedAt.set(key, Date.now())
 }
 
-// ── Invalidation bus exports ────────────────────────────────────────────────────
+// ── Invalidation bus exports ────────────────────────────────────────────────────────
 // SliceKey + sliceLoaders let useRealtime fan out a realtime payload to the
 // correct force-refetch functions without importing each loader individually.
 // Trade-off: a flat map is simpler than a dynamic dispatch pattern, and all
@@ -193,7 +237,7 @@ export function loadAll(): Promise<unknown[]> {
   ])
 }
 
-// ── Per-view composers ──────────────────────────────────────────────────────────
+// ── Per-view composers ──────────────────────────────────────────────────────────────
 // Stable module-level exports. Slice loaders dedup within 200ms so shell seed +
 // view loader co-firing collapses to one request per slice.
 
@@ -214,7 +258,7 @@ export const loadRecentsView = (): Promise<void> => loadRecentItems()
 
 export const loadInboxView = (): Promise<void> => loadInbox()
 
-// ── useDataLoader hook ──────────────────────────────────────────────────────────
+// ── useDataLoader hook ──────────────────────────────────────────────────────────────
 // Provides forced-refresh variants and the loadAll escape hatch for mutations.
 export function useDataLoader() {
   // Recomposed refresh functions (force = true bypasses dedup)
@@ -234,7 +278,7 @@ export function useDataLoader() {
   const refreshInbox = () => loadInbox(true)
 
   // Load all slices (rollback escape hatch)
-  const loadAll = () => Promise.all([
+  const loadAllFn = () => Promise.all([
     loadTasks(true),
     loadProjects(true),
     loadClosedTasks(true),
@@ -246,7 +290,7 @@ export function useDataLoader() {
   ])
 
   return {
-    loadAll,
+    loadAll: loadAllFn,
     refreshTasks,
     refreshInbox,
     loadTasks,
@@ -258,24 +302,4 @@ export function useDataLoader() {
     loadPinnedDoneTasks,
     loadRecentItems,
   }
-}
-
-// ── useAutoRefresh ──────────────────────────────────────────────────────────────
-// Visibility-gated polling. `load` should be a stable reference (module-level
-// composer) so the effect deps are stable.
-export function useAutoRefresh(load: () => Promise<unknown>, interval = 30000) {
-  const lastRunAt = useRef(Date.now())
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (document.hidden) return
-      load().then(() => { lastRunAt.current = Date.now() })
-    }, interval)
-    const onVis = () => {
-      if (!document.hidden && Date.now() - lastRunAt.current > interval) {
-        load().then(() => { lastRunAt.current = Date.now() })
-      }
-    }
-    document.addEventListener('visibilitychange', onVis)
-    return () => { clearInterval(id); document.removeEventListener('visibilitychange', onVis) }
-  }, [load, interval])
 }
