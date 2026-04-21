@@ -11,6 +11,7 @@
 
 import * as Comlink from 'comlink'
 import sqlite3InitModule, { type BindingSpec } from '@sqlite.org/sqlite-wasm'
+import { runMigrations } from './migrationRunner'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,15 +43,12 @@ let _db: OO1DB | null = null
 let _initPromise: Promise<void> | null = null
 
 // ---------------------------------------------------------------------------
-// Migration runner
+// Migration loader
 // ---------------------------------------------------------------------------
 
 // Migrations are imported at build time via Vite's ?raw query. Each module in
 // the migrations/ sub-folder is a numbered SQL file (e.g. 001_init.sql).
-// At PR-A time the folder is empty (stubbed for T5). The runner is a no-op
-// when no migration modules are registered.
-
-type MigrationEntry = { version: number; sql: string }
+// The runner is a no-op when no migration modules are registered.
 
 // Build-time import of all migration files. Vite resolves import.meta.glob at
 // compile time, so the resulting map is always present even if empty.
@@ -59,54 +57,20 @@ const _migrationModules = import.meta.glob<{ default: string }>(
   { query: '?raw', eager: true },
 )
 
-function _loadMigrations(): MigrationEntry[] {
-  const entries: MigrationEntry[] = []
+function _loadMigrationSources() {
+  const entries: Array<{ order: number; name: string; sql: string }> = []
   for (const [filePath, mod] of Object.entries(_migrationModules)) {
-    // Extract the leading number from the filename, e.g. "001_init.sql" → 1
     const fileName = filePath.split('/').pop() ?? ''
     const match = /^(\d+)/.exec(fileName)
     if (!match) continue
-    const version = parseInt(match[1], 10)
-    entries.push({ version, sql: mod.default })
+    entries.push({ order: parseInt(match[1], 10), name: fileName, sql: mod.default })
   }
-  return entries.sort((a, b) => a.version - b.version)
+  entries.sort((a, b) => a.order - b.order)
+  return entries.map(({ name, sql }) => ({ name, sql }))
 }
 
 function _runMigrations(db: OO1DB): void {
-  // Ensure the migrations tracking table exists.
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS _migrations (
-      version  INTEGER PRIMARY KEY,
-      applied_at TEXT NOT NULL
-    );
-  `)
-
-  const migrations = _loadMigrations()
-  if (migrations.length === 0) return
-
-  // Determine which versions have already been applied.
-  const applied = new Set<number>()
-  db.exec({
-    sql: 'SELECT version FROM _migrations',
-    rowMode: 'object',
-    callback: (row: Record<string, unknown>) => {
-      applied.add(row['version'] as number)
-    },
-  })
-
-  // Apply pending migrations inside a single transaction.
-  const pending = migrations.filter((m) => !applied.has(m.version))
-  if (pending.length === 0) return
-
-  db.transaction(() => {
-    for (const { version, sql } of pending) {
-      db.exec(sql)
-      db.exec({
-        sql: 'INSERT INTO _migrations (version, applied_at) VALUES (?, ?)',
-        bind: [version, new Date().toISOString()],
-      })
-    }
-  })
+  runMigrations(db, _loadMigrationSources())
 }
 
 // ---------------------------------------------------------------------------

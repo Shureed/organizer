@@ -51,6 +51,10 @@ CREATE TABLE IF NOT EXISTS action_node (
   chain_origin_id  TEXT,
   git_backed       INTEGER NOT NULL DEFAULT 0,
   git_pr_url       TEXT,
+  -- Denormalised join columns: pulled from server view payload (plan §4.4).
+  project_name     TEXT,
+  space_name       TEXT,
+  space_path       TEXT,
   created_at       TEXT NOT NULL,
   updated_at       TEXT NOT NULL,
   -- sync metadata (plan §4.3)
