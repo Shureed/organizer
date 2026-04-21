@@ -40,7 +40,8 @@ const timers = new Map<SliceKey, number>()
 // Per-comments-slice debounce timers — keyed dynamically per (entity_type, entity_id).
 const commentsTimers = new Map<string, number>()
 
-function invalidateFor(table: string): void {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function invalidateFor(table: string, _payload?: unknown): void {
   for (const slice of ROUTING[table] ?? []) {
     const prev = timers.get(slice)
     if (prev) clearTimeout(prev)
