@@ -196,6 +196,18 @@ export function useRealtime(session: Session | null): void {
         if (status === 'SUBSCRIBED') void onRejoin()
       })
 
+    // VERIFY 3.4 — deliberate break: unpublished table
+    const people = supabase
+      .channel('rt:people')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'people' },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (p: any) => void p,
+      )
+      .subscribe()
+    void people
+
     // Visibility reconciliation: if the tab was hidden ≥ 60 s, flush all
     // slices on return to avoid stale UI from missed realtime events.
     // When SQLite is on, run syncAll() first then loadAll() so the local DB
