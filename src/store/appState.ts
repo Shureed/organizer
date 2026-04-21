@@ -115,6 +115,25 @@ export const useUIStore = create<UIStore>((set) => ({
     set((state) => ({ ui: { ...state.ui, ...patch } })),
 }))
 
+// ── Error store ───────────────────────────────────────────────────────────────
+
+export interface LoadError {
+  slice: string
+  message: string
+}
+
+interface ErrorStore {
+  loadError: LoadError | null
+  setLoadError: (err: LoadError) => void
+  clearLoadError: () => void
+}
+
+export const useErrorStore = create<ErrorStore>((set) => ({
+  loadError: null,
+  setLoadError: (err) => set({ loadError: err }),
+  clearLoadError: () => set({ loadError: null }),
+}))
+
 // ── Compat shim ────────────────────────────────────────────────────────────────
 // useAppStore(selector) runs the selector against a combined snapshot
 // { data, ui, setData, setUI, patchUI }. Zustand's default Object.is comparison
