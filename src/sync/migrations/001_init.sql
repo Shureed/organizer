@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS action_node (
   name             TEXT NOT NULL,
   status           TEXT NOT NULL DEFAULT 'open',
   type             TEXT NOT NULL DEFAULT 'task',
-  priority         TEXT,
+  priority_renamed TEXT,
   parent_id        TEXT,
   space_id         TEXT,
   date             TEXT,
