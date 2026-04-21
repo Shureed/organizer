@@ -35,6 +35,7 @@ export interface RelatedItem {
   entity_type: string
   entity_id: string
   direction: string
+  relation_type: string
   name: string
   display_type: string
 }
@@ -148,7 +149,7 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
       })
       if (relatedErr) console.error('fn_related error:', relatedErr)
       const relatedRows = (rawRelated ?? []) as Array<{
-        link_id: string; entity_type: string; entity_id: string; direction: string
+        link_id: string; entity_type: string; entity_id: string; direction: string; relation_type: string
       }>
       if (relatedRows.length > 0) {
         // All action_node items (tasks, projects, bugs, etc.) are stored as entity_type='task'
