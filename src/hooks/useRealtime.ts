@@ -24,7 +24,7 @@ const ROUTING: Record<string, SliceKey[]> = {
 // Per-slice debounce timers — coalesces rapid multi-row events into one fetch.
 const timers = new Map<SliceKey, number>()
 
-function invalidateFor(table: string, _payload: unknown): void {
+function invalidateFor(table: string): void {
   for (const slice of ROUTING[table] ?? []) {
     const prev = timers.get(slice)
     if (prev) clearTimeout(prev)
@@ -72,7 +72,7 @@ export function useRealtime(session: Session | null): void {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'action_node' },
-        (p) => invalidateFor('action_node', p),
+        () => invalidateFor('action_node'),
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') onRejoin()
@@ -83,7 +83,7 @@ export function useRealtime(session: Session | null): void {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'inbox' },
-        (p) => invalidateFor('inbox', p),
+        () => invalidateFor('inbox'),
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') onRejoin()

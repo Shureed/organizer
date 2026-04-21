@@ -17,6 +17,7 @@ import { scheduleSearchRebuild, useSearch } from './hooks/useSearch'
 import { LoadingSpinner } from './components/LoadingSpinner'
 import { OfflineIndicator } from './components/OfflineIndicator'
 import { UpdatePrompt } from './components/UpdatePrompt'
+import { LoadErrorBanner } from './components/LoadErrorBanner'
 import './App.css'
 
 const LoginPage = lazy(() => import('./components/LoginPage').then(m => ({ default: m.LoginPage })))
@@ -89,21 +90,16 @@ interface SearchBarProps {
 function SearchBar({ onSelect }: SearchBarProps) {
   const { search } = useSearch()
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const results = query.trim().length >= 2 ? search(query) : []
+  const open = results.length > 0
 
-  useEffect(() => {
-    if (results.length > 0) setOpen(true)
-    else setOpen(false)
-  }, [results.length])
-
-  // Close on outside click
+  // Close on outside click by clearing query
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
+        setQuery('')
       }
     }
     document.addEventListener('mousedown', handler)
@@ -113,7 +109,6 @@ function SearchBar({ onSelect }: SearchBarProps) {
   const handleSelect = (id: string, type: string) => {
     onSelect(id, type)
     setQuery('')
-    setOpen(false)
   }
 
   return (
@@ -135,13 +130,13 @@ function SearchBar({ onSelect }: SearchBarProps) {
           className="text-base placeholder:text-[var(--text-muted)] min-w-0"
         />
         {query && (
-          <button onClick={() => { setQuery(''); setOpen(false) }}>
+          <button onClick={() => { setQuery('') }}>
             <X size={14} style={{ color: 'var(--text-muted)' }} />
           </button>
         )}
       </div>
 
-      {open && results.length > 0 && (
+      {open && (
         <div
           style={{
             backgroundColor: 'var(--surface)',
@@ -237,6 +232,7 @@ function MainApp({ session }: MainAppProps) {
     >
       <OfflineIndicator />
       <UpdatePrompt />
+      <LoadErrorBanner />
       {/* Top search bar */}
       <div
         style={{
