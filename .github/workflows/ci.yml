@@ -85,3 +85,23 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  realtime-publication-scan:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SUPABASE_SECRET_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Realtime publication scan
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/check-realtime-publications.mjs
