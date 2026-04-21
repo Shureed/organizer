@@ -241,6 +241,7 @@ export type Database = {
           read: boolean
           source: Database["public"]["Enums"]["inbox_source"]
           title: string
+          updated_at: string
           user_id: string
         }
         Insert: {
@@ -254,6 +255,7 @@ export type Database = {
           read?: boolean
           source?: Database["public"]["Enums"]["inbox_source"]
           title: string
+          updated_at?: string
           user_id?: string
         }
         Update: {
@@ -267,6 +269,7 @@ export type Database = {
           read?: boolean
           source?: Database["public"]["Enums"]["inbox_source"]
           title?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -409,30 +412,6 @@ export type Database = {
           id?: string
           remind_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      skill_versions: {
-        Row: {
-          deprecated: boolean
-          details: string | null
-          skill_name: string
-          updated_at: string
-          version: string
-        }
-        Insert: {
-          deprecated?: boolean
-          details?: string | null
-          skill_name: string
-          updated_at?: string
-          version: string
-        }
-        Update: {
-          deprecated?: boolean
-          details?: string | null
-          skill_name?: string
-          updated_at?: string
-          version?: string
         }
         Relationships: []
       }
@@ -840,6 +819,16 @@ export type Database = {
       }
     }
     Functions: {
+      fn_chain_ancestors: {
+        Args: { node_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          name: string
+          status: Database["public"]["Enums"]["item_status"]
+          type: Database["public"]["Enums"]["task_type"]
+        }[]
+      }
       fn_context: {
         Args: { p_id: string; p_type: Database["public"]["Enums"]["item_type"] }
         Returns: {
@@ -850,6 +839,15 @@ export type Database = {
           summary: string
           ts: string
         }[]
+      }
+      fn_link_spawned_from: {
+        Args: {
+          a_id: string
+          a_type: Database["public"]["Enums"]["item_type"]
+          b_id: string
+          b_type: Database["public"]["Enums"]["item_type"]
+        }
+        Returns: undefined
       }
       fn_node_tree: {
         Args: { root_id: string }
@@ -865,7 +863,16 @@ export type Database = {
           entity_id: string
           entity_type: Database["public"]["Enums"]["item_type"]
           link_id: string
+          relation_type: Database["public"]["Enums"]["relation_type"]
         }[]
+      }
+      fn_resolve_inbox: {
+        Args: {
+          inbox_id: string
+          resolved_id: string
+          resolved_type: Database["public"]["Enums"]["item_type"]
+        }
+        Returns: undefined
       }
       fn_semantic_search: {
         Args: {
@@ -888,6 +895,24 @@ export type Database = {
         Returns: {
           space_id: string
         }[]
+      }
+      fn_spawn_branch: {
+        Args: {
+          new_body?: string
+          new_name: string
+          new_type: Database["public"]["Enums"]["task_type"]
+          spawning_id: string
+        }
+        Returns: string
+      }
+      fn_spawn_chain_node: {
+        Args: {
+          new_body?: string
+          new_name: string
+          new_type: Database["public"]["Enums"]["task_type"]
+          origin_or_spawning_id: string
+        }
+        Returns: string
       }
       fn_task_tree: {
         Args: { root_id: string }
@@ -925,7 +950,12 @@ export type Database = {
       item_status: "open" | "in_progress" | "waiting" | "done" | "cancelled"
       item_type: "space" | "task" | "note" | "inbox" | "person"
       priority_level: "high" | "medium" | "low"
-      relation_type: "relates_to" | "blocks" | "duplicate_of" | "spawned_from"
+      relation_type:
+        | "relates_to"
+        | "blocks"
+        | "duplicate_of"
+        | "spawned_from"
+        | "branched_from"
       task_type:
         | "task"
         | "bug"
@@ -1085,7 +1115,13 @@ export const Constants = {
       item_status: ["open", "in_progress", "waiting", "done", "cancelled"],
       item_type: ["space", "task", "note", "inbox", "person"],
       priority_level: ["high", "medium", "low"],
-      relation_type: ["relates_to", "blocks", "duplicate_of", "spawned_from"],
+      relation_type: [
+        "relates_to",
+        "blocks",
+        "duplicate_of",
+        "spawned_from",
+        "branched_from",
+      ],
       task_type: [
         "task",
         "bug",

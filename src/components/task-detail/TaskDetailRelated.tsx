@@ -1,8 +1,11 @@
+import { GitBranch } from 'lucide-react'
+
 interface RelatedItem {
   link_id: string
   entity_type: string
   entity_id: string
   direction: string
+  relation_type: string
   name: string
   display_type: string
 }
@@ -12,6 +15,22 @@ interface TaskDetailRelatedProps {
   isOpen: boolean
   onToggleOpen: (updater: boolean | ((prev: boolean) => boolean)) => void
   onSelectItem: (id: string) => void
+}
+
+function getRelationAffordance(relationType: string, direction: string): {
+  label: string
+  icon: React.ReactNode | null
+} {
+  if (relationType === 'branched_from') {
+    return {
+      label: direction === 'forward' ? 'Branches' : 'Branched from',
+      icon: <GitBranch size={11} style={{ color: 'var(--accent)' }} />,
+    }
+  }
+  return {
+    label: direction === 'forward' ? 'links to' : 'linked from',
+    icon: null,
+  }
 }
 
 export function TaskDetailRelated({
@@ -50,6 +69,7 @@ export function TaskDetailRelated({
           ) : (
             related.map(r => {
               const isNode = r.entity_type === 'task' || r.entity_type === 'project'
+              const { label, icon } = getRelationAffordance(r.relation_type, r.direction)
               return (
                 <button
                   key={r.link_id}
@@ -71,8 +91,9 @@ export function TaskDetailRelated({
                   <span style={{ color: 'var(--text)' }} className="text-sm flex-1 min-w-0 truncate">
                     {r.name}
                   </span>
-                  <span style={{ color: 'var(--text-muted)' }} className="text-[10px] shrink-0">
-                    {r.direction === 'forward' ? 'links to' : 'linked from'}
+                  <span style={{ color: 'var(--text-muted)' }} className="flex items-center gap-1 text-[10px] shrink-0">
+                    {icon}
+                    {label}
                   </span>
                 </button>
               )
