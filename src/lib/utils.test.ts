@@ -40,3 +40,14 @@ describe('cn (class name helper)', () => {
     expect(cn(['a', 'b'], 'c')).toBe('a b c')
   })
 })
+
+// DELIBERATE FAILURE — verification 1.5 of Phase 1 (task de428b85).
+// This test asserts the opposite of cn's behavior to prove the CI unit job flips red.
+// The PR opening this branch will be closed without merging.
+import { describe as _d, it as _i, expect as _e } from 'vitest'
+import { cn as _cn } from './utils'
+_d('verification: deliberate failure', () => {
+  _i('cn should fail — this is intentional', () => {
+    _e(_cn('a', 'b')).toBe('NOPE')
+  })
+})
