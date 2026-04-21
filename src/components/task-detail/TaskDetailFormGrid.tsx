@@ -86,18 +86,31 @@ export function TaskDetailFormGrid({
           <label style={{ color: 'var(--text-muted)' }} className="text-[11px] font-medium uppercase tracking-wide">
             Date
           </label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => onDateChange(e.target.value)}
-            style={{
-              backgroundColor: 'var(--surface2)',
-              color: 'var(--text)',
-              border: '1px solid var(--border)',
-              colorScheme: 'dark',
-            }}
-            className="rounded-lg px-2 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
-          />
+          <div className="flex items-center gap-1">
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => onDateChange(e.target.value)}
+              style={{
+                backgroundColor: 'var(--surface2)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                colorScheme: 'dark',
+              }}
+              className="rounded-lg px-2 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+            />
+            {date && (
+              <button
+                type="button"
+                aria-label="Clear date"
+                onClick={() => onDateChange('')}
+                style={{ color: 'var(--text-muted)' }}
+                className="rounded-md px-2 py-1.5 text-sm hover:text-[var(--text)]"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Bucket */}
