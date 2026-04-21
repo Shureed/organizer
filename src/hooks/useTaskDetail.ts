@@ -144,7 +144,7 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
 
       // All action_node items are stored as item_type 'task' in related_items
       const { data: rawRelated, error: relatedErr } = await supabase.rpc('fn_related', {
-        p_type: 'task' as any,
+        p_type: 'task' as const,
         p_id: id,
       })
       if (relatedErr) console.error('fn_related error:', relatedErr)
