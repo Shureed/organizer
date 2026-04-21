@@ -119,7 +119,7 @@ export function scheduleSearchRebuild(slice: SliceKey, data: AppData) {
     const fuse = new FuseCtor!(allItems, FUSE_OPTIONS)
     useAppStore.getState().patchUI({ searchItems: allItems, fuseIndex: fuse })
   }
-  const ric = (globalThis as any).requestIdleCallback
+  const ric = (globalThis as typeof globalThis & { requestIdleCallback?: (cb: () => void, opts?: { timeout?: number }) => void }).requestIdleCallback
   if (typeof ric === 'function') ric(run, { timeout: 500 })
   else setTimeout(run, 16)
 }

@@ -20,4 +20,12 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  // shadcn/ui components legitimately co-export constants alongside components.
+  // App.tsx co-exports prefetch helpers for route-based lazy loading.
+  {
+    files: ['src/components/ui/**/*.{ts,tsx}', 'src/App.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

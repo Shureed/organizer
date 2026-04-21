@@ -93,21 +93,16 @@ interface SearchBarProps {
 function SearchBar({ onSelect }: SearchBarProps) {
   const { search } = useSearch()
   const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
   const results = query.trim().length >= 2 ? search(query) : []
-
-  useEffect(() => {
-    if (results.length > 0) setOpen(true)
-    else setOpen(false)
-  }, [results.length])
+  const open = results.length > 0
 
   // Close on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
+        setQuery('')
       }
     }
     document.addEventListener('mousedown', handler)
@@ -117,7 +112,6 @@ function SearchBar({ onSelect }: SearchBarProps) {
   const handleSelect = (id: string, type: string) => {
     onSelect(id, type)
     setQuery('')
-    setOpen(false)
   }
 
   return (
@@ -139,7 +133,7 @@ function SearchBar({ onSelect }: SearchBarProps) {
           className="text-base placeholder:text-[var(--text-muted)] min-w-0"
         />
         {query && (
-          <button onClick={() => { setQuery(''); setOpen(false) }}>
+          <button onClick={() => { setQuery('') }}>
             <X size={14} style={{ color: 'var(--text-muted)' }} />
           </button>
         )}
@@ -238,7 +232,6 @@ function MainApp({ session }: MainAppProps) {
         console.error('[App] SQLite bootstrap failed', err)
       }
     })()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.user.id])
 
   // Build search index per slice (idle-coalesced)

@@ -40,7 +40,7 @@ const timers = new Map<SliceKey, number>()
 // Per-comments-slice debounce timers — keyed dynamically per (entity_type, entity_id).
 const commentsTimers = new Map<string, number>()
 
-function invalidateFor(table: string, _payload: unknown): void {
+function invalidateFor(table: string): void {
   for (const slice of ROUTING[table] ?? []) {
     const prev = timers.get(slice)
     if (prev) clearTimeout(prev)
