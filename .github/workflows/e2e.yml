@@ -1,0 +1,75 @@
+# Phase 5: Playwright e2e smoke against any PR's Cloudflare Pages preview.
+#
+# Triggered by the `deployment_status: success` event that deploy-preview.yml
+# emits after a successful CF Pages preview deploy. We filter on the
+# environment name prefix so we never run against production GH Pages
+# (deploy.yml uses environment `github-pages`, not `preview-*`).
+#
+# Concurrency is keyed on the preview environment so overlapping deploys for
+# the same PR (e.g. rapid force-pushes) cancel prior e2e runs — this prevents
+# two Playwright runs from fighting over the single shared test user.
+#
+# Artefacts (playwright-report + test-results) upload on failure so traces,
+# screenshots, and videos are retrievable from the Actions run page.
+
+name: E2E
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+  deployments: read
+  actions: read
+
+concurrency:
+  group: e2e-${{ github.event.deployment.environment }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      startsWith(github.event.deployment.environment, 'preview-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright e2e
+        env:
+          E2E_PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: npm run test:e2e
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.event.deployment.environment }}
+          path: e2e/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload test-results (traces/screenshots/videos)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-${{ github.event.deployment.environment }}
+          path: e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
