@@ -88,9 +88,6 @@ jobs:
 
   realtime-publication-scan:
     runs-on: ubuntu-latest
-    env:
-      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -103,9 +100,4 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Realtime publication scan
-        if: ${{ env.SUPABASE_SECRET_KEY != '' }}
         run: node scripts/check-realtime-publications.mjs
-
-      - name: Skip reason
-        if: ${{ env.SUPABASE_SECRET_KEY == '' }}
-        run: echo "SUPABASE_SECRET_KEY not set — skipping realtime publication scan."
