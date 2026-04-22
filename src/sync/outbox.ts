@@ -223,6 +223,8 @@ async function clearDirty(table: OutboxTable, rowId: string): Promise<void> {
  * Explicitly callable from PR-C T10 on realtime SUBSCRIBED transition.
  */
 export async function triggerReplay(): Promise<void> {
+  // VERIFY-6.10: intentional outbox-drain break to force flipover gate red.
+  return
   if (_replayRunning) return
   if (!navigator.onLine) return
 
