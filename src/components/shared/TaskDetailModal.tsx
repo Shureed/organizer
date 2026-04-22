@@ -1,4 +1,5 @@
 import { useTaskDetail } from '../../hooks/useTaskDetail'
+import { useUIStore } from '../../store/appState'
 import {
   Dialog,
   DialogContent,
@@ -39,8 +40,10 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
     setPriority,
     setBucket,
     setRelatedOpen,
-    setActiveTaskId,
   } = ui
+
+  const patchUI = useUIStore((s) => s.patchUI)
+  const navigateToTask = (id: string | null) => patchUI({ openTaskId: id })
 
   return (
     <Dialog open={!!taskId} onOpenChange={(open) => { if (!open) onClose() }}>
@@ -63,7 +66,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
                   {parentNode.type === 'project' ? '↑ Project' : '↑ Parent'}
                 </span>
                 <button
-                  onClick={() => setActiveTaskId(parentNode.id)}
+                  onClick={() => navigateToTask(parentNode.id)}
                   style={{
                     backgroundColor: 'var(--surface2)',
                     color: 'var(--accent)',
@@ -125,7 +128,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
             {/* Subtasks */}
             <TaskDetailSubtasks
               subtasks={subtasks}
-              onSelectSubtask={setActiveTaskId}
+              onSelectSubtask={navigateToTask}
             />
 
             {/* Related Items */}
@@ -133,7 +136,7 @@ export function TaskDetailModal({ taskId, onClose }: TaskDetailModalProps) {
               related={related}
               isOpen={relatedOpen}
               onToggleOpen={setRelatedOpen}
-              onSelectItem={setActiveTaskId}
+              onSelectItem={navigateToTask}
             />
 
             {/* Comments */}

@@ -59,7 +59,6 @@ export interface UseTaskDetailResult {
     commentBody: string
     submittingComment: boolean
     relatedOpen: boolean
-    activeTaskId: string | null
     isDateSet: boolean
     setStatus: (v: ItemStatus) => void
     setDate: (v: string) => void
@@ -67,7 +66,6 @@ export interface UseTaskDetailResult {
     setBucket: (v: string) => void
     setCommentBody: (v: string) => void
     setRelatedOpen: (updater: boolean | ((prev: boolean) => boolean)) => void
-    setActiveTaskId: (id: string | null) => void
   }
 
   actions: {
@@ -97,14 +95,12 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
   const [commentBody, setCommentBody] = useState('')
   const [submittingComment, setSubmittingComment] = useState(false)
 
-  const [activeTaskId, setActiveTaskId] = useState<string | null>(taskId)
-
   const { changeTaskStatus, toggleTaskPin } = useMutations()
   const { refreshTasks } = useDataLoader()
 
   // Comments come from the shared per-entity slice (realtime-backed).
   // Self-posts dedup by client-generated UUID; realtime echo is a no-op.
-  const { comments, post: postCommentShared } = useComments('task', activeTaskId)
+  const { comments, post: postCommentShared } = useComments('task', taskId)
 
   const fetchTask = useCallback(async (id: string) => {
     setLoading(true)
@@ -193,21 +189,17 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
   }, [])
 
   useEffect(() => {
-    setActiveTaskId(taskId)
-  }, [taskId])
-
-  useEffect(() => {
-    if (activeTaskId) {
-      fetchTask(activeTaskId)
+    if (taskId) {
+      fetchTask(taskId)
     }
-  }, [activeTaskId, fetchTask])
+  }, [taskId, fetchTask])
 
   const handleUpdate = useCallback(async (onClose: () => void) => {
-    if (!activeTaskId) return
+    if (!taskId) return
     setSaving(true)
     try {
       await changeTaskStatus(
-        activeTaskId,
+        taskId,
         status,
         (bucket || null) as ItemBucket | null,
         date || null,
@@ -220,10 +212,10 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
     } finally {
       setSaving(false)
     }
-  }, [activeTaskId, status, bucket, date, priority, changeTaskStatus, refreshTasks])
+  }, [taskId, status, bucket, date, priority, changeTaskStatus, refreshTasks])
 
   const handleCommentSubmit = useCallback(async (scrollToBottom: () => void) => {
-    if (!activeTaskId || !commentBody.trim()) return
+    if (!taskId || !commentBody.trim()) return
     const body = commentBody.trim()
     setCommentBody('')
     setSubmittingComment(true)
@@ -236,18 +228,18 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
     } finally {
       setSubmittingComment(false)
     }
-  }, [activeTaskId, commentBody, postCommentShared])
+  }, [taskId, commentBody, postCommentShared])
 
   const handleTogglePin = useCallback(async () => {
-    if (!activeTaskId || pinning || !task) return
+    if (!taskId || pinning || !task) return
     setPinning(true)
     try {
-      await toggleTaskPin(activeTaskId, !task.pinned)
-      await fetchTask(activeTaskId)
+      await toggleTaskPin(taskId, !task.pinned)
+      await fetchTask(taskId)
     } finally {
       setPinning(false)
     }
-  }, [activeTaskId, pinning, task, toggleTaskPin, fetchTask])
+  }, [taskId, pinning, task, toggleTaskPin, fetchTask])
 
   return {
     task,
@@ -268,7 +260,6 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
       commentBody,
       submittingComment,
       relatedOpen,
-      activeTaskId,
       isDateSet: !!date,
       setStatus,
       setDate,
@@ -276,7 +267,6 @@ export function useTaskDetail(taskId: string | null): UseTaskDetailResult {
       setBucket,
       setCommentBody,
       setRelatedOpen,
-      setActiveTaskId,
     },
 
     actions: {
