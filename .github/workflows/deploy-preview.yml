@@ -53,11 +53,15 @@ jobs:
       - name: Build
         run: npm run build
 
+      # The chrnorm/deployment-* actions below use E2E_CHAIN_TOKEN (a PAT)
+      # rather than github.token because deployment_status events created via
+      # GITHUB_TOKEN do not trigger other workflows (GH anti-recursion rule),
+      # which would silently break the Phase 5 e2e chain.
       - name: Create GitHub deployment
         id: gh-deployment
         uses: chrnorm/deployment-action@v2
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.E2E_CHAIN_TOKEN }}
           environment: preview-${{ github.event.pull_request.number }}
           ref: ${{ github.event.pull_request.head.sha }}
           transient-environment: true
@@ -84,7 +88,7 @@ jobs:
         if: success()
         uses: chrnorm/deployment-status@v2
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.E2E_CHAIN_TOKEN }}
           deployment-id: ${{ steps.gh-deployment.outputs.deployment_id }}
           environment-url: ${{ steps.cf-deploy.outputs.deployment-url }}
           state: success
@@ -93,6 +97,6 @@ jobs:
         if: failure()
         uses: chrnorm/deployment-status@v2
         with:
-          token: ${{ github.token }}
+          token: ${{ secrets.E2E_CHAIN_TOKEN }}
           deployment-id: ${{ steps.gh-deployment.outputs.deployment_id }}
           state: failure
