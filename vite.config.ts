@@ -6,8 +6,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
 // https://vite.dev/config/
+// Production deploys live under the /organizer/ path on GH Pages; CF Pages
+// previews serve the dist root at "/", so we let the workflow override via
+// VITE_BASE_PATH to avoid 404s on the /organizer/-prefixed asset URLs baked
+// into index.html.
 export default defineConfig({
-  base: '/organizer/',
+  base: process.env.VITE_BASE_PATH ?? '/organizer/',
   plugins: [
     tailwindcss(),
     react(),

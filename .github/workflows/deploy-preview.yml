@@ -51,6 +51,11 @@ jobs:
         run: npm install --legacy-peer-deps
 
       - name: Build
+        # CF Pages serves dist at "/", but vite's default base is /organizer/
+        # for the GH Pages production deploy. Override here so preview builds
+        # reference assets at /assets/ rather than /organizer/assets/.
+        env:
+          VITE_BASE_PATH: /
         run: npm run build
 
       # The chrnorm/deployment-* actions below use E2E_CHAIN_TOKEN (a PAT)
