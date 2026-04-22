@@ -1,0 +1,93 @@
+# Per-PR preview deploys to Cloudflare Pages (project: organizer-preview).
+#
+# This workflow builds the app on every pull_request event and deploys the
+# resulting dist/ to a Cloudflare Pages preview tied to the PR's head branch,
+# then posts a sticky comment with the preview URL and emits a GitHub
+# deployment_status event so Phase 5's e2e.yml can trigger off it. It is kept
+# separate from ci.yml (which runs lint/typecheck/unit/build on every PR and
+# push) and from deploy.yml (which publishes production to GitHub Pages on
+# main) because preview deploys have different triggers, permissions, secrets,
+# and failure semantics — coupling them would force every CI run to hold
+# Cloudflare credentials and would make preview flakiness break required CI
+# checks. If a future env var is needed by the preview build, add it in the
+# Cloudflare Pages dashboard → Settings → Environment variables under the
+# Preview scope (not Production). Cloudflare automatically retires preview
+# deployments after the branch is deleted or the PR is closed, so there is no
+# teardown workflow; note that preview URLs typically go stale ~7 days after
+# PR close.
+
+name: Deploy Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+
+concurrency:
+  group: preview-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build
+        run: npm run build
+
+      - name: Create GitHub deployment
+        id: gh-deployment
+        uses: chrnorm/deployment-action@v2
+        with:
+          token: ${{ github.token }}
+          environment: preview-${{ github.event.pull_request.number }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          transient-environment: true
+          auto-merge: false
+
+      - name: Deploy to Cloudflare Pages
+        id: cf-deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=organizer-preview --branch=${{ github.head_ref }}
+
+      - name: Post sticky preview comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview-deploy
+          message: |
+            🚀 Preview: ${{ steps.cf-deploy.outputs.deployment-url }}
+
+            This preview is auto-destroyed by Cloudflare Pages when the PR is closed or the branch is deleted (URLs typically go stale ~7 days after PR close).
+
+      - name: Mark deployment success
+        if: success()
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ github.token }}
+          deployment-id: ${{ steps.gh-deployment.outputs.deployment_id }}
+          environment-url: ${{ steps.cf-deploy.outputs.deployment-url }}
+          state: success
+
+      - name: Mark deployment failure
+        if: failure()
+        uses: chrnorm/deployment-status@v2
+        with:
+          token: ${{ github.token }}
+          deployment-id: ${{ steps.gh-deployment.outputs.deployment_id }}
+          state: failure
