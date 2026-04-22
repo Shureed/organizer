@@ -151,6 +151,26 @@ async function smokeSlices() {
       : '[smoke] SOME FAILURES — check results above',
   )
 
+  // ── DEPRECATION BANNER (Phase 6) ─────────────────────────────────────────
+  // The 7 auth-dependent manual checks below have been superseded by the
+  // Playwright flip-over PR gate. Prefer the automated suite for any src/sync
+  // change; this script remains only as a developer convenience for ad-hoc
+  // slice inspection in the browser console.
+  //
+  //   Automated suite: e2e/specs/flipover/*.spec.ts
+  //   Trigger:         CF Pages preview → .github/workflows/e2e.yml (flipover job)
+  //   Local run:       npx playwright test --config=e2e/playwright.config.ts specs/flipover
+  //
+  // Planned deprecation, not removal — this script still exits 0. Tracking
+  // issue: Phase 6 plan item "deprecate manual smoke-slices checklist".
+  // ─────────────────────────────────────────────────────────────────────────
+  console.warn(
+    '[smoke-slices] DEPRECATED: the manual 7-step checklist below is now ' +
+      'covered by e2e/specs/flipover/*.spec.ts. Use `npx playwright test ' +
+      '--config=e2e/playwright.config.ts specs/flipover` and the CI flipover ' +
+      'job instead of running the steps by hand.',
+  )
+
   return results
 }
 
