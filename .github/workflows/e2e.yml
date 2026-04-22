@@ -1,13 +1,18 @@
-# Phase 5: Playwright e2e smoke against any PR's Cloudflare Pages preview.
+# Phase 5+6: Playwright e2e against any PR's Cloudflare Pages preview.
+#
+# Two jobs:
+#   - smoke:    the Phase 5 seeded-fixture smoke spec, runs on every preview.
+#   - flipover: the Phase 6 7-scenario flip-over gate, runs only when the PR
+#               touches src/sync/**. When path detection fails we fall back
+#               to running it anyway — over-running is cheaper than skipping
+#               a required gate.
 #
 # Triggered by the `deployment_status: success` event that deploy-preview.yml
 # emits after a successful CF Pages preview deploy. We filter on the
-# environment name prefix so we never run against production GH Pages
-# (deploy.yml uses environment `github-pages`, not `preview-*`).
+# environment name prefix so we never run against production GH Pages.
 #
 # Concurrency is keyed on the preview environment so overlapping deploys for
-# the same PR (e.g. rapid force-pushes) cancel prior e2e runs — this prevents
-# two Playwright runs from fighting over the single shared test user.
+# the same PR (e.g. rapid force-pushes) cancel prior e2e runs.
 #
 # Artefacts (playwright-report + test-results) upload on failure so traces,
 # screenshots, and videos are retrievable from the Actions run page.
@@ -21,13 +26,14 @@ permissions:
   contents: read
   deployments: read
   actions: read
+  pull-requests: read
 
 concurrency:
   group: e2e-${{ github.event.deployment.environment }}
   cancel-in-progress: true
 
 jobs:
-  playwright:
+  smoke:
     if: >-
       github.event.deployment_status.state == 'success' &&
       startsWith(github.event.deployment.environment, 'preview-')
@@ -49,18 +55,18 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run Playwright e2e
+      - name: Run smoke spec only
         env:
           E2E_PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
           E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-        run: npm run test:e2e
+        run: npx playwright test --config=e2e/playwright.config.ts specs/smoke.spec.ts
 
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ github.event.deployment.environment }}
+          name: playwright-report-smoke-${{ github.event.deployment.environment }}
           path: e2e/playwright-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -69,7 +75,116 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-test-results-${{ github.event.deployment.environment }}
+          name: playwright-test-results-smoke-${{ github.event.deployment.environment }}
+          path: e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ───────────────────────────────────────────────────────────────────────────
+  # flipover: gate for src/sync/** changes. Runs the 7 flip-over specs that
+  # replaced the manual scripts/smoke-slices.mjs checklist.
+  #
+  # deployment_status events don't carry changed-paths info, so we look up
+  # the PR number from the `preview-<number>` environment name and query
+  # /repos/{owner}/{repo}/pulls/{number}/files via gh api to decide whether
+  # to run. Any failure in path detection (env parse error, API failure,
+  # permission issue) short-circuits to "run it anyway" — a red required
+  # gate is recoverable; a silently-skipped one is not.
+  # ───────────────────────────────────────────────────────────────────────────
+  flipover:
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      startsWith(github.event.deployment.environment, 'preview-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha }}
+
+      - name: Decide whether to run flipover gate
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ENV_NAME: ${{ github.event.deployment.environment }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -u
+          # Parse PR number from "preview-<number>".
+          pr="${ENV_NAME#preview-}"
+          if ! [[ "$pr" =~ ^[0-9]+$ ]]; then
+            echo "could not parse PR number from env='$ENV_NAME'; falling back to RUN"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "reason=fallback-env-parse" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if ! files_json=$(gh api --paginate "/repos/$REPO/pulls/$pr/files" 2>/dev/null); then
+            echo "gh api call failed for PR #$pr; falling back to RUN"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "reason=fallback-api-failure" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # --paginate returns concatenated JSON arrays; slurp them into one.
+          if ! paths=$(printf '%s' "$files_json" | jq -rs 'add | .[].filename' 2>/dev/null); then
+            echo "could not parse PR files JSON; falling back to RUN"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "reason=fallback-json-parse" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "PR #$pr changed files:"
+          printf '%s\n' "$paths"
+
+          if printf '%s\n' "$paths" | grep -qE '^src/sync/'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "reason=sync-paths-touched" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "reason=no-sync-paths" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.decide.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.decide.outputs.run == 'true'
+        run: npm install --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        if: steps.decide.outputs.run == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run flipover specs
+        if: steps.decide.outputs.run == 'true'
+        env:
+          E2E_PREVIEW_URL: ${{ github.event.deployment_status.environment_url }}
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+        run: npx playwright test --config=e2e/playwright.config.ts specs/flipover
+
+      - name: Skip note
+        if: steps.decide.outputs.run != 'true'
+        run: echo "Flipover gate skipped — ${{ steps.decide.outputs.reason }}"
+
+      - name: Upload Playwright report
+        if: always() && steps.decide.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-flipover-${{ github.event.deployment.environment }}
+          path: e2e/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload test-results (traces/screenshots/videos)
+        if: always() && steps.decide.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-flipover-${{ github.event.deployment.environment }}
           path: e2e/test-results/
           if-no-files-found: ignore
           retention-days: 14
