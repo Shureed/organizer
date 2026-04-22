@@ -78,10 +78,7 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     { key: storageKey, value: storageValue },
   )
 
-  // The app is served under /organizer/ (vite `base` config, mirroring the GH
-  // Pages production path). Hitting the bare preview host gives a blank mount.
-  const appUrl = previewUrl.replace(/\/$/, '') + '/organizer/'
-  await page.goto(appUrl, { waitUntil: 'domcontentloaded' })
+  await page.goto(previewUrl, { waitUntil: 'domcontentloaded' })
 
   // Wait for the app to finish its initial auth + data load. If the login
   // page still shows, auth injection failed.

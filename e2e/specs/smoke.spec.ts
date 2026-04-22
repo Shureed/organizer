@@ -11,7 +11,7 @@ import { test, expect } from '@playwright/test'
  * unambiguous in Today view.
  */
 test('today view renders the seeded fixture task for the e2e user', async ({ page }) => {
-  await page.goto('/organizer/')
+  await page.goto('/')
 
   // Confirm we're authenticated (login page should not show).
   await expect(page.getByText('Sign in with your email to continue')).toHaveCount(0)
