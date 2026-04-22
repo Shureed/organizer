@@ -34,6 +34,11 @@ concurrency:
 jobs:
   deploy-preview:
     runs-on: ubuntu-latest
+    env:
+      # wrangler-action runs `npx wrangler` internally without --legacy-peer-deps,
+      # which fails ERESOLVE on vite-plugin-pwa's older vite peer range. Force
+      # legacy peer deps for all npm installs in this job.
+      NPM_CONFIG_LEGACY_PEER_DEPS: 'true'
     steps:
       - uses: actions/checkout@v4
 
