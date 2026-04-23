@@ -37,7 +37,19 @@ function binds(arr: unknown[]): SqlBindings {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 1000
+const DEFAULT_PAGE_SIZE = 1000
+
+/**
+ * Effective PAGE_SIZE — reads from `globalThis.__PULL_PAGE_SIZE` if set, else
+ * defaults to 1000.  The override exists so pagination tests can drive the
+ * pull loops across page boundaries with small fixtures (see
+ * __tests__/pagination.test.ts).  Production code paths never set the global,
+ * so the read-through has zero effect at runtime.
+ */
+function getPageSize(): number {
+  const override = (globalThis as { __PULL_PAGE_SIZE?: number }).__PULL_PAGE_SIZE
+  return typeof override === 'number' && override > 0 ? override : DEFAULT_PAGE_SIZE
+}
 
 // Tables that support LWW via updated_at.
 export type SyncTable = 'action_node' | 'inbox'
@@ -388,7 +400,8 @@ export async function upsertCommentFromServer(
  * Uses id as the keyset cursor (plan §4.5).
  * Treats empty DB as cold-start — no error on first page (Safari 7-day eviction).
  */
-async function fullBackfill(table: SyncTable): Promise<void> {
+export async function fullBackfill(table: SyncTable): Promise<void> {
+  const pageSize = getPageSize()
   let cursor: string | null = null
   let totalFetched = 0
 
@@ -398,7 +411,7 @@ async function fullBackfill(table: SyncTable): Promise<void> {
       .select('*')
       .order('created_at', { ascending: true })
       .order('id', { ascending: true })
-      .limit(PAGE_SIZE)
+      .limit(pageSize)
 
     if (cursor !== null) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -421,7 +434,7 @@ async function fullBackfill(table: SyncTable): Promise<void> {
       window.dispatchEvent(event)
     }
 
-    if (rows.length < PAGE_SIZE) break // last page
+    if (rows.length < pageSize) break // last page
 
     // Advance cursor to the id of the last row on this page.
     cursor = rows[rows.length - 1]?.['id'] as string ?? null
@@ -437,7 +450,8 @@ async function fullBackfill(table: SyncTable): Promise<void> {
  *
  * inbox and action_node use the same path (plan §4.6 note on inbox.updated_at).
  */
-async function deltaPull(table: SyncTable): Promise<void> {
+export async function deltaPull(table: SyncTable): Promise<void> {
+  const pageSize = getPageSize()
   const metaKey = `last_pull_${table}` as const
   const since = await getMeta(metaKey) ?? '1970-01-01T00:00:00.000Z'
 
@@ -450,7 +464,7 @@ async function deltaPull(table: SyncTable): Promise<void> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .gt('updated_at' as any, lastUpdatedAt)
       .order('updated_at', { ascending: true })
-      .limit(PAGE_SIZE)
+      .limit(pageSize)
 
     if (error) throw error
 
@@ -462,7 +476,7 @@ async function deltaPull(table: SyncTable): Promise<void> {
     // Advance cursor to the updated_at of the last row.
     lastUpdatedAt = rows[rows.length - 1]?.['updated_at'] as string ?? lastUpdatedAt
 
-    if (rows.length < PAGE_SIZE) break
+    if (rows.length < pageSize) break
   }
 
   // Persist the cursor even if we got 0 rows (to record the attempt time).
@@ -550,6 +564,7 @@ export type ActiveView = 'v_active_tasks' | 'v_active_projects'
  * lands as an UPDATE (join col overlay).
  */
 export async function fullBackfillFromView(view: ActiveView): Promise<void> {
+  const pageSize = getPageSize()
   let cursor: string | null = null
 
   for (;;) {
@@ -558,7 +573,7 @@ export async function fullBackfillFromView(view: ActiveView): Promise<void> {
       .select('*')
       .order('created_at', { ascending: true })
       .order('id', { ascending: true })
-      .limit(PAGE_SIZE)
+      .limit(pageSize)
 
     if (cursor !== null) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -571,7 +586,7 @@ export async function fullBackfillFromView(view: ActiveView): Promise<void> {
     const rows = (data ?? []) as Record<string, unknown>[]
     await applyRows('action_node', rows, 'view')
 
-    if (rows.length < PAGE_SIZE) break
+    if (rows.length < pageSize) break
 
     cursor = rows[rows.length - 1]?.['id'] as string ?? null
     if (cursor === null) break
@@ -584,6 +599,7 @@ export async function fullBackfillFromView(view: ActiveView): Promise<void> {
  * Uses the same _meta cursor as the base table (same updated_at field).
  */
 export async function deltaPullFromView(view: ActiveView): Promise<void> {
+  const pageSize = getPageSize()
   const metaKey = 'last_pull_action_node'
   const since = await getMeta(metaKey) ?? '1970-01-01T00:00:00.000Z'
 
@@ -596,7 +612,7 @@ export async function deltaPullFromView(view: ActiveView): Promise<void> {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .gt('updated_at' as any, lastUpdatedAt)
       .order('updated_at', { ascending: true })
-      .limit(PAGE_SIZE)
+      .limit(pageSize)
 
     if (error) throw error
 
@@ -607,7 +623,7 @@ export async function deltaPullFromView(view: ActiveView): Promise<void> {
 
     lastUpdatedAt = rows[rows.length - 1]?.['updated_at'] as string ?? lastUpdatedAt
 
-    if (rows.length < PAGE_SIZE) break
+    if (rows.length < pageSize) break
   }
 }
 
