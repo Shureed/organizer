@@ -29,6 +29,24 @@
 import type { SqlBindings } from './db.worker'
 import { supabase } from '../lib/supabase'
 import { mutate, query, checkQuotaAndEvict, registerQuotaCheck } from './client'
+import {
+  compoundCursorFilter,
+  parseCompoundCursor,
+  serializeCompoundCursor,
+  type CompoundCursor,
+} from './cursor'
+
+/**
+ * Client-side sync schema version.  Bumped whenever the `_meta.last_pull_*`
+ * cursor format changes in a way that requires existing clients to re-run
+ * fullBackfill under the new code.  See maybeRunSchemaRepair().
+ *
+ *   v1 — bare-ISO `_meta.last_pull_{table}` cursors, id-only keyset backfill.
+ *   v2 — compound `<iso>|<uuid>` cursors, (updated_at, id) keyset everywhere.
+ *
+ * PR-B (compound cursor fix) is the v1→v2 transition.
+ */
+export const SYNC_SCHEMA_VERSION = 2
 
 /** Cast an array of mixed values to the BindingSpec array type SQLite expects. */
 function binds(arr: unknown[]): SqlBindings {
@@ -397,26 +415,23 @@ export async function upsertCommentFromServer(
 
 /**
  * Keyset-paginated full backfill for a single table.
- * Uses id as the keyset cursor (plan §4.5).
+ * Uses a compound (updated_at, id) cursor (PR-B fix — bug 9a61d89c).
  * Treats empty DB as cold-start — no error on first page (Safari 7-day eviction).
  */
 export async function fullBackfill(table: SyncTable): Promise<void> {
   const pageSize = getPageSize()
-  let cursor: string | null = null
+  let cursor: CompoundCursor = null
   let totalFetched = 0
 
   for (;;) {
-    let builder = supabase
+    const base = supabase
       .from(table)
       .select('*')
-      .order('created_at', { ascending: true })
+      .order('updated_at', { ascending: true })
       .order('id', { ascending: true })
       .limit(pageSize)
 
-    if (cursor !== null) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      builder = (builder as any).gt('id', cursor)
-    }
+    const builder = compoundCursorFilter(base, cursor)
 
     const { data, error } = await builder
     if (error) throw error
@@ -436,9 +451,12 @@ export async function fullBackfill(table: SyncTable): Promise<void> {
 
     if (rows.length < pageSize) break // last page
 
-    // Advance cursor to the id of the last row on this page.
-    cursor = rows[rows.length - 1]?.['id'] as string ?? null
-    if (cursor === null) break
+    // Advance cursor to the (updated_at, id) of the last row on this page.
+    const last = rows[rows.length - 1]
+    const lastUpdatedAt = last?.['updated_at'] as string | undefined
+    const lastId = last?.['id'] as string | undefined
+    if (!lastUpdatedAt || !lastId) break
+    cursor = { updated_at: lastUpdatedAt, id: lastId }
   }
 }
 
@@ -453,19 +471,19 @@ export async function fullBackfill(table: SyncTable): Promise<void> {
 export async function deltaPull(table: SyncTable): Promise<void> {
   const pageSize = getPageSize()
   const metaKey = `last_pull_${table}` as const
-  const since = await getMeta(metaKey) ?? '1970-01-01T00:00:00.000Z'
-
-  let lastUpdatedAt = since
+  let cursor = parseCompoundCursor(await getMeta(metaKey))
 
   for (;;) {
-    const { data, error } = await supabase
+    const base = supabase
       .from(table)
       .select('*')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .gt('updated_at' as any, lastUpdatedAt)
       .order('updated_at', { ascending: true })
+      .order('id', { ascending: true })
       .limit(pageSize)
 
+    const builder = compoundCursorFilter(base, cursor)
+
+    const { data, error } = await builder
     if (error) throw error
 
     const rows = (data ?? []) as Record<string, unknown>[]
@@ -473,14 +491,18 @@ export async function deltaPull(table: SyncTable): Promise<void> {
 
     if (rows.length === 0) break
 
-    // Advance cursor to the updated_at of the last row.
-    lastUpdatedAt = rows[rows.length - 1]?.['updated_at'] as string ?? lastUpdatedAt
+    // Advance cursor to the (updated_at, id) of the last row.
+    const last = rows[rows.length - 1]
+    const lastUpdatedAt = last?.['updated_at'] as string | undefined
+    const lastId = last?.['id'] as string | undefined
+    if (!lastUpdatedAt || !lastId) break
+    cursor = { updated_at: lastUpdatedAt, id: lastId }
 
     if (rows.length < pageSize) break
   }
 
-  // Persist the cursor even if we got 0 rows (to record the attempt time).
-  await setMeta(metaKey, lastUpdatedAt)
+  // Persist the compound cursor even if we got 0 rows (records the attempt time).
+  await setMeta(metaKey, serializeCompoundCursor(cursor))
 }
 
 // ── Comments pull ─────────────────────────────────────────────────────────────
@@ -565,20 +587,17 @@ export type ActiveView = 'v_active_tasks' | 'v_active_projects'
  */
 export async function fullBackfillFromView(view: ActiveView): Promise<void> {
   const pageSize = getPageSize()
-  let cursor: string | null = null
+  let cursor: CompoundCursor = null
 
   for (;;) {
-    let builder = supabase
+    const base = supabase
       .from(view)
       .select('*')
-      .order('created_at', { ascending: true })
+      .order('updated_at', { ascending: true })
       .order('id', { ascending: true })
       .limit(pageSize)
 
-    if (cursor !== null) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      builder = (builder as any).gt('id', cursor)
-    }
+    const builder = compoundCursorFilter(base, cursor)
 
     const { data, error } = await builder
     if (error) throw error
@@ -588,8 +607,11 @@ export async function fullBackfillFromView(view: ActiveView): Promise<void> {
 
     if (rows.length < pageSize) break
 
-    cursor = rows[rows.length - 1]?.['id'] as string ?? null
-    if (cursor === null) break
+    const last = rows[rows.length - 1]
+    const lastUpdatedAt = last?.['updated_at'] as string | undefined
+    const lastId = last?.['id'] as string | undefined
+    if (!lastUpdatedAt || !lastId) break
+    cursor = { updated_at: lastUpdatedAt, id: lastId }
   }
 }
 
@@ -601,19 +623,21 @@ export async function fullBackfillFromView(view: ActiveView): Promise<void> {
 export async function deltaPullFromView(view: ActiveView): Promise<void> {
   const pageSize = getPageSize()
   const metaKey = 'last_pull_action_node'
-  const since = await getMeta(metaKey) ?? '1970-01-01T00:00:00.000Z'
-
-  let lastUpdatedAt = since
+  // Shares the base-table cursor — the compound format is mandatory after
+  // PR-B so deltaPull and deltaPullFromView read/write a consistent tuple.
+  let cursor = parseCompoundCursor(await getMeta(metaKey))
 
   for (;;) {
-    const { data, error } = await supabase
+    const base = supabase
       .from(view)
       .select('*')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .gt('updated_at' as any, lastUpdatedAt)
       .order('updated_at', { ascending: true })
+      .order('id', { ascending: true })
       .limit(pageSize)
 
+    const builder = compoundCursorFilter(base, cursor)
+
+    const { data, error } = await builder
     if (error) throw error
 
     const rows = (data ?? []) as Record<string, unknown>[]
@@ -621,7 +645,11 @@ export async function deltaPullFromView(view: ActiveView): Promise<void> {
 
     if (rows.length === 0) break
 
-    lastUpdatedAt = rows[rows.length - 1]?.['updated_at'] as string ?? lastUpdatedAt
+    const last = rows[rows.length - 1]
+    const lastUpdatedAt = last?.['updated_at'] as string | undefined
+    const lastId = last?.['id'] as string | undefined
+    if (!lastUpdatedAt || !lastId) break
+    cursor = { updated_at: lastUpdatedAt, id: lastId }
 
     if (rows.length < pageSize) break
   }
@@ -689,9 +717,13 @@ export async function initialSync(): Promise<void> {
   await fullBackfillFromView('v_active_projects')
   await fullBackfill('inbox')
 
+  // Stamp compound-cursor form so the next deltaPull uses the new grammar.
+  // Pair with ZERO_UUID so any tied rows at ts=now are still re-admitted.
   const now = new Date().toISOString()
-  await setMeta('last_pull_action_node', now)
-  await setMeta('last_pull_inbox', now)
+  const stamp = serializeCompoundCursor({ updated_at: now, id: '00000000-0000-0000-0000-000000000000' })
+  await setMeta('last_pull_action_node', stamp)
+  await setMeta('last_pull_inbox', stamp)
+  await setMeta('sync_schema_version', String(SYNC_SCHEMA_VERSION))
 
   // T15: Check quota and evict old comments if needed
   await checkQuotaAndEvict()
@@ -719,6 +751,50 @@ export async function syncAll(): Promise<{ action_node: string; inbox: string }>
     action_node: (await getMeta('last_pull_action_node')) ?? '',
     inbox: (await getMeta('last_pull_inbox')) ?? '',
   }
+}
+
+// ── T7 sync_schema_version client repair ─────────────────────────────────────
+
+/**
+ * maybeRunSchemaRepair() — one-shot client repair path that re-runs
+ * fullBackfill when the locally-stored `_meta.sync_schema_version` is missing
+ * or older than SYNC_SCHEMA_VERSION.
+ *
+ * The PR-B compound-cursor fix changes the `_meta.last_pull_{table}` grammar
+ * and also assumes every existing client has re-run fullBackfill at least
+ * once under the fixed paths (so any rows silently dropped by the old id-only
+ * keyset are recovered).  This function guarantees both invariants on the
+ * first load after upgrade:
+ *
+ *   1. Wipes all `last_pull_*` keys so stale bare-ISO cursors can't be read.
+ *   2. Calls initialSync() unconditionally (bypassing the "is OPFS empty?"
+ *      check in App.tsx), forcing a full compound-cursor backfill.
+ *   3. Stamps sync_schema_version = SYNC_SCHEMA_VERSION so the repair does
+ *      not fire again on subsequent loads.
+ *
+ * Returns true if the repair actually ran (initialSync executed), false if
+ * the client was already current and the normal bootstrap path should proceed.
+ *
+ * Safe on fresh / empty DBs: the missing version still triggers initialSync,
+ * which is what the empty-OPFS path would have done anyway — and the version
+ * key gets stamped at the end regardless.
+ */
+export async function maybeRunSchemaRepair(): Promise<boolean> {
+  const raw = await getMeta('sync_schema_version')
+  const current = raw === null ? 0 : Number(raw)
+  if (Number.isFinite(current) && current >= SYNC_SCHEMA_VERSION) {
+    return false
+  }
+
+  // Wipe any stale `last_pull_*` cursors — their format may have changed.
+  await mutate(`DELETE FROM _meta WHERE key LIKE 'last_pull_%'`)
+
+  await initialSync()
+
+  // initialSync() stamps sync_schema_version itself, but re-stamp defensively
+  // in case a future refactor moves that responsibility.
+  await setMeta('sync_schema_version', String(SYNC_SCHEMA_VERSION))
+  return true
 }
 
 // ── T8 race probe (for manual smoke-testing) ─────────────────────────────────

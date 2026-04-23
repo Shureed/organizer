@@ -209,8 +209,8 @@ beforeEach(() => {
 // PR-B will remove `.fails` and the assertions will pass.
 // ---------------------------------------------------------------------------
 
-describe('pagination regression shield (expected to fail against current pull.ts)', () => {
-  it.fails('fullBackfill(action_node) mirrors every row despite non-monotonic ids across pages', async () => {
+describe('pagination regression shield (PR-B: compound (updated_at, id) cursor)', () => {
+  it('fullBackfill(action_node) mirrors every row despite non-monotonic ids across pages', async () => {
     const rows = buildAdversarialRows()
     fake.seed('action_node', rows)
 
@@ -222,7 +222,7 @@ describe('pagination regression shield (expected to fail against current pull.ts
     expect(mirroredIds).toEqual(expectedIds)
   })
 
-  it.fails('deltaPull(inbox) mirrors every row despite tied updated_at across page boundary', async () => {
+  it('deltaPull(inbox) mirrors every row despite tied updated_at across page boundary', async () => {
     const rows = buildInboxRows()
     fake.seed('inbox', rows)
 
@@ -234,7 +234,7 @@ describe('pagination regression shield (expected to fail against current pull.ts
     expect(mirroredIds).toEqual(expectedIds)
   })
 
-  it.fails('fullBackfillFromView(v_active_tasks) mirrors every row despite non-monotonic ids', async () => {
+  it('fullBackfillFromView(v_active_tasks) mirrors every row despite non-monotonic ids', async () => {
     const rows = buildAdversarialRows()
     fake.seed('v_active_tasks', rows)
 
@@ -246,7 +246,7 @@ describe('pagination regression shield (expected to fail against current pull.ts
     expect(mirroredIds).toEqual(expectedIds)
   })
 
-  it.fails('deltaPullFromView(v_active_tasks) mirrors every row despite tied updated_at across page boundary', async () => {
+  it('deltaPullFromView(v_active_tasks) mirrors every row despite tied updated_at across page boundary', async () => {
     const rows = buildAdversarialRows()
     fake.seed('v_active_tasks', rows)
 
