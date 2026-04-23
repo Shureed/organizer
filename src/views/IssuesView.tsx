@@ -1,11 +1,21 @@
-import { useEffect } from 'react'
-import { useAppStore } from '../store/appState'
+import { useEffect, useMemo } from 'react'
+import { useAppStore, useDataStore } from '../store/appState'
 import { IssueCard } from '../components/issues/IssueCard'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { loadIssuesView } from '../hooks/useDataLoader'
+import type { NodePhase } from '../components/shared/PhaseBadge'
 
 const ISSUE_TYPES = ['bug', 'improvement', 'feature', 'idea', 'thought'] as const
 const TASK_TYPES_EXCLUDED = new Set(['task', 'project'])
+const CONTAINER_TYPES = new Set(['bug', 'improvement', 'feature', 'idea'])
+
+const PHASE_OPTIONS: { value: NodePhase | ''; label: string }[] = [
+  { value: '', label: 'All Phases' },
+  { value: 'discovery', label: 'Discovery' },
+  { value: 'plan', label: 'Plan' },
+  { value: 'executing', label: 'Executing' },
+  { value: 'retro', label: 'Retro' },
+]
 
 const PRIORITY_RANK: Record<string, number> = {
   high: 1,
@@ -15,8 +25,18 @@ const PRIORITY_RANK: Record<string, number> = {
 
 export function IssuesView() {
   const { data, ui, patchUI } = useAppStore()
+  const activeContainers = useDataStore((s) => s.data.activeContainers)
 
   useEffect(() => { loadIssuesView() }, [])
+
+  // Build a phase lookup map from activeContainers (id → phase)
+  const phaseMap = useMemo(() => {
+    const map = new Map<string, NodePhase | null>()
+    for (const c of activeContainers) {
+      map.set(c.id, c.phase as NodePhase | null)
+    }
+    return map
+  }, [activeContainers])
 
   // Filter to issue types only
   const issues = data.tasks.filter((t) => t.type && !TASK_TYPES_EXCLUDED.has(t.type))
@@ -27,12 +47,20 @@ export function IssuesView() {
     : issues
 
   // Apply priority filter
-  const filtered = ui.issuesFilterPriority
+  const priorityFiltered = ui.issuesFilterPriority
     ? typeFiltered.filter((t) => t.priority === ui.issuesFilterPriority)
     : typeFiltered
 
+  // Apply phase filter — only meaningful for container types that have phase
+  const phaseFiltered = ui.issuesFilterPhase
+    ? priorityFiltered.filter((t) => {
+        if (!t.id || !CONTAINER_TYPES.has(t.type ?? '')) return false
+        return phaseMap.get(t.id) === ui.issuesFilterPhase
+      })
+    : priorityFiltered
+
   // Sort: priority asc (high first, nulls last), then created_at asc
-  const sorted = [...filtered].sort((a, b) => {
+  const sorted = [...phaseFiltered].sort((a, b) => {
     const pa = a.priority ? (PRIORITY_RANK[a.priority] ?? 4) : 4
     const pb = b.priority ? (PRIORITY_RANK[b.priority] ?? 4) : 4
     if (pa !== pb) return pa - pb
@@ -98,6 +126,23 @@ export function IssuesView() {
             <option value="medium">Medium</option>
             <option value="low">Low</option>
           </select>
+
+          <select
+            value={ui.issuesFilterPhase}
+            onChange={(e) => patchUI({ issuesFilterPhase: e.target.value })}
+            style={{
+              background: 'var(--surface2)',
+              color: ui.issuesFilterPhase ? 'var(--text)' : 'var(--text-muted)',
+              border: '1px solid var(--border)',
+            }}
+            className="flex-1 rounded-lg px-2.5 py-1.5 text-xs outline-none"
+          >
+            {PHASE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -115,6 +160,7 @@ export function IssuesView() {
               <IssueCard
                 key={task.id}
                 task={task}
+                phase={task.id ? phaseMap.get(task.id) : undefined}
                 onClick={() => task.id && patchUI({ openTaskId: task.id })}
               />
             ))

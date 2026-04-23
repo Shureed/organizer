@@ -28,6 +28,7 @@ export interface AppData {
   inbox: InboxItem[]
   pinnedDoneTasks: ActionNode[]
   recentItems: Pick<ActionNode, 'id' | 'name' | 'status' | 'updated_at' | 'type' | 'priority'>[]
+  activeContainers: ActionNode[]
 }
 
 export interface AppUI {
@@ -37,6 +38,7 @@ export interface AppUI {
   calendarSelectedDay: string | null
   issuesFilterType: string
   issuesFilterPriority: string
+  issuesFilterPhase: string
   showClosedSearch: boolean
   searchItems: SearchItem[]
   fuseIndex: Fuse<SearchItem> | null
@@ -51,6 +53,9 @@ interface DataStore {
   setData: (patch: Partial<AppData>) => void
 }
 
+// Module-level stable empty arrays — never inline `?? []` in selectors (Zustand ref equality).
+const EMPTY_ACTIVE_CONTAINERS: ActionNode[] = []
+
 const initialData: AppData = {
   tasks: [],
   projects: [],
@@ -59,6 +64,7 @@ const initialData: AppData = {
   inbox: [],
   pinnedDoneTasks: [],
   recentItems: [],
+  activeContainers: EMPTY_ACTIVE_CONTAINERS,
 }
 
 export const useDataStore = create<DataStore>((set) => ({
@@ -82,6 +88,7 @@ const initialUI: AppUI = {
   calendarSelectedDay: new Date().toLocaleDateString('en-CA'),
   issuesFilterType: '',
   issuesFilterPriority: '',
+  issuesFilterPhase: '',
   showClosedSearch: false,
   searchItems: [],
   fuseIndex: null,

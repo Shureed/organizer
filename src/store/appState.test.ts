@@ -24,6 +24,7 @@ const resetDataStore = () =>
       inbox: [],
       pinnedDoneTasks: [],
       recentItems: [],
+      activeContainers: [],
     },
   })
 
@@ -36,6 +37,7 @@ const resetUIStore = () =>
       calendarSelectedDay: null,
       issuesFilterType: '',
       issuesFilterPriority: '',
+      issuesFilterPhase: '',
       showClosedSearch: false,
       searchItems: [],
       fuseIndex: null,
