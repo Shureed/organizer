@@ -19,8 +19,8 @@ export type Database = {
           archived: boolean
           assignee: Database["public"]["Enums"]["assignee_type"] | null
           body: string | null
+          branched_from: string | null
           bucket: Database["public"]["Enums"]["item_bucket"] | null
-          chain_origin_id: string | null
           completed_at: string | null
           created_at: string
           date: string | null
@@ -31,6 +31,7 @@ export type Database = {
           id: string
           name: string
           parent_id: string | null
+          phase: Database["public"]["Enums"]["node_phase"] | null
           pinned: boolean
           priority: Database["public"]["Enums"]["priority_level"] | null
           space_id: string | null
@@ -43,8 +44,8 @@ export type Database = {
           archived?: boolean
           assignee?: Database["public"]["Enums"]["assignee_type"] | null
           body?: string | null
+          branched_from?: string | null
           bucket?: Database["public"]["Enums"]["item_bucket"] | null
-          chain_origin_id?: string | null
           completed_at?: string | null
           created_at?: string
           date?: string | null
@@ -55,6 +56,7 @@ export type Database = {
           id?: string
           name: string
           parent_id?: string | null
+          phase?: Database["public"]["Enums"]["node_phase"] | null
           pinned?: boolean
           priority?: Database["public"]["Enums"]["priority_level"] | null
           space_id?: string | null
@@ -67,8 +69,8 @@ export type Database = {
           archived?: boolean
           assignee?: Database["public"]["Enums"]["assignee_type"] | null
           body?: string | null
+          branched_from?: string | null
           bucket?: Database["public"]["Enums"]["item_bucket"] | null
-          chain_origin_id?: string | null
           completed_at?: string | null
           created_at?: string
           date?: string | null
@@ -79,6 +81,7 @@ export type Database = {
           id?: string
           name?: string
           parent_id?: string | null
+          phase?: Database["public"]["Enums"]["node_phase"] | null
           pinned?: boolean
           priority?: Database["public"]["Enums"]["priority_level"] | null
           space_id?: string | null
@@ -89,43 +92,36 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "action_node_chain_origin_id_fkey"
-            columns: ["chain_origin_id"]
+            foreignKeyName: "action_node_branched_from_fkey"
+            columns: ["branched_from"]
             isOneToOne: false
             referencedRelation: "action_node"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "action_node_chain_origin_id_fkey"
-            columns: ["chain_origin_id"]
+            foreignKeyName: "action_node_branched_from_fkey"
+            columns: ["branched_from"]
             isOneToOne: false
             referencedRelation: "v_active_projects"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "action_node_chain_origin_id_fkey"
-            columns: ["chain_origin_id"]
+            foreignKeyName: "action_node_branched_from_fkey"
+            columns: ["branched_from"]
             isOneToOne: false
             referencedRelation: "v_active_tasks"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "action_node_chain_origin_id_fkey"
-            columns: ["chain_origin_id"]
-            isOneToOne: false
-            referencedRelation: "v_chain_status"
-            referencedColumns: ["origin_id"]
-          },
-          {
-            foreignKeyName: "action_node_chain_origin_id_fkey"
-            columns: ["chain_origin_id"]
+            foreignKeyName: "action_node_branched_from_fkey"
+            columns: ["branched_from"]
             isOneToOne: false
             referencedRelation: "v_overdue_tasks"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "action_node_chain_origin_id_fkey"
-            columns: ["chain_origin_id"]
+            foreignKeyName: "action_node_branched_from_fkey"
+            columns: ["branched_from"]
             isOneToOne: false
             referencedRelation: "v_todays_tasks"
             referencedColumns: ["id"]
@@ -150,13 +146,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_active_tasks"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "action_node_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "v_chain_status"
-            referencedColumns: ["origin_id"]
           },
           {
             foreignKeyName: "action_node_parent_id_fkey"
@@ -273,6 +262,126 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      node_phase_audit: {
+        Row: {
+          id: number
+          new_phase: Database["public"]["Enums"]["node_phase"] | null
+          node_id: string
+          old_phase: Database["public"]["Enums"]["node_phase"] | null
+          ts: string
+        }
+        Insert: {
+          id?: number
+          new_phase?: Database["public"]["Enums"]["node_phase"] | null
+          node_id: string
+          old_phase?: Database["public"]["Enums"]["node_phase"] | null
+          ts?: string
+        }
+        Update: {
+          id?: number
+          new_phase?: Database["public"]["Enums"]["node_phase"] | null
+          node_id?: string
+          old_phase?: Database["public"]["Enums"]["node_phase"] | null
+          ts?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "node_phase_audit_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "action_node"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_phase_audit_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_phase_audit_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_phase_audit_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_overdue_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_phase_audit_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_todays_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      node_session: {
+        Row: {
+          ended_at: string | null
+          id: string
+          last_checkpoint_summary: string | null
+          node_id: string
+          started_at: string
+        }
+        Insert: {
+          ended_at?: string | null
+          id?: string
+          last_checkpoint_summary?: string | null
+          node_id: string
+          started_at?: string
+        }
+        Update: {
+          ended_at?: string | null
+          id?: string
+          last_checkpoint_summary?: string | null
+          node_id?: string
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "action_node"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_overdue_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_todays_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notes: {
         Row: {
@@ -533,13 +642,6 @@ export type Database = {
             foreignKeyName: "action_node_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "v_chain_status"
-            referencedColumns: ["origin_id"]
-          },
-          {
-            foreignKeyName: "action_node_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
             referencedRelation: "v_overdue_tasks"
             referencedColumns: ["id"]
           },
@@ -558,16 +660,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      v_chain_status: {
-        Row: {
-          chain_nodes: string[] | null
-          origin_id: string | null
-          origin_name: string | null
-          origin_status: Database["public"]["Enums"]["item_status"] | null
-          origin_type: Database["public"]["Enums"]["task_type"] | null
-        }
-        Relationships: []
       }
       v_entity_comments: {
         Row: {
@@ -683,13 +775,6 @@ export type Database = {
             foreignKeyName: "action_node_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "v_chain_status"
-            referencedColumns: ["origin_id"]
-          },
-          {
-            foreignKeyName: "action_node_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
             referencedRelation: "v_overdue_tasks"
             referencedColumns: ["id"]
           },
@@ -705,6 +790,55 @@ export type Database = {
             columns: ["space_id"]
             isOneToOne: false
             referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      v_resumable_sessions: {
+        Row: {
+          last_checkpoint_summary: string | null
+          node_id: string | null
+          node_name: string | null
+          node_status: Database["public"]["Enums"]["item_status"] | null
+          node_type: Database["public"]["Enums"]["task_type"] | null
+          open_for: string | null
+          session_id: string | null
+          started_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "action_node"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_active_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_overdue_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "node_session_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "v_todays_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -767,13 +901,6 @@ export type Database = {
             foreignKeyName: "action_node_parent_id_fkey"
             columns: ["parent_id"]
             isOneToOne: false
-            referencedRelation: "v_chain_status"
-            referencedColumns: ["origin_id"]
-          },
-          {
-            foreignKeyName: "action_node_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
             referencedRelation: "v_overdue_tasks"
             referencedColumns: ["id"]
           },
@@ -819,15 +946,80 @@ export type Database = {
       }
     }
     Functions: {
-      fn_chain_ancestors: {
-        Args: { node_id: string }
+      fn_advance_phase: {
+        Args: {
+          p_next_phase: Database["public"]["Enums"]["node_phase"]
+          p_node_id: string
+        }
         Returns: {
+          archived: boolean
+          assignee: Database["public"]["Enums"]["assignee_type"] | null
+          body: string | null
+          branched_from: string | null
+          bucket: Database["public"]["Enums"]["item_bucket"] | null
+          completed_at: string | null
           created_at: string
+          date: string | null
+          embedding: string | null
+          embedding_updated_at: string | null
+          git_backed: boolean
+          git_pr_url: string | null
           id: string
           name: string
-          status: Database["public"]["Enums"]["item_status"]
+          parent_id: string | null
+          phase: Database["public"]["Enums"]["node_phase"] | null
+          pinned: boolean
+          priority: Database["public"]["Enums"]["priority_level"] | null
+          space_id: string | null
+          status: Database["public"]["Enums"]["item_status"] | null
           type: Database["public"]["Enums"]["task_type"]
-        }[]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "action_node"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      fn_checkpoint: {
+        Args: { p_node_id: string; p_summary: string }
+        Returns: undefined
+      }
+      fn_complete_node: {
+        Args: { p_id: string }
+        Returns: {
+          archived: boolean
+          assignee: Database["public"]["Enums"]["assignee_type"] | null
+          body: string | null
+          branched_from: string | null
+          bucket: Database["public"]["Enums"]["item_bucket"] | null
+          completed_at: string | null
+          created_at: string
+          date: string | null
+          embedding: string | null
+          embedding_updated_at: string | null
+          git_backed: boolean
+          git_pr_url: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          phase: Database["public"]["Enums"]["node_phase"] | null
+          pinned: boolean
+          priority: Database["public"]["Enums"]["priority_level"] | null
+          space_id: string | null
+          status: Database["public"]["Enums"]["item_status"] | null
+          type: Database["public"]["Enums"]["task_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "action_node"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       fn_context: {
         Args: { p_id: string; p_type: Database["public"]["Enums"]["item_type"] }
@@ -840,20 +1032,13 @@ export type Database = {
           ts: string
         }[]
       }
-      fn_link_spawned_from: {
-        Args: {
-          a_id: string
-          a_type: Database["public"]["Enums"]["item_type"]
-          b_id: string
-          b_type: Database["public"]["Enums"]["item_type"]
-        }
-        Returns: undefined
-      }
-      fn_node_tree: {
-        Args: { root_id: string }
+      fn_end_session: { Args: { p_node_id: string }; Returns: undefined }
+      fn_node_tree: { Args: { root_id: string }; Returns: string }
+      fn_realtime_publication_tables: {
+        Args: never
         Returns: {
-          depth: number
-          task_id: string
+          schemaname: string
+          tablename: string
         }[]
       }
       fn_related: {
@@ -896,24 +1081,41 @@ export type Database = {
           space_id: string
         }[]
       }
-      fn_spawn_branch: {
-        Args: {
-          new_body?: string
-          new_name: string
-          new_type: Database["public"]["Enums"]["task_type"]
-          spawning_id: string
+      fn_start_node_work: {
+        Args: { p_id: string }
+        Returns: {
+          archived: boolean
+          assignee: Database["public"]["Enums"]["assignee_type"] | null
+          body: string | null
+          branched_from: string | null
+          bucket: Database["public"]["Enums"]["item_bucket"] | null
+          completed_at: string | null
+          created_at: string
+          date: string | null
+          embedding: string | null
+          embedding_updated_at: string | null
+          git_backed: boolean
+          git_pr_url: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          phase: Database["public"]["Enums"]["node_phase"] | null
+          pinned: boolean
+          priority: Database["public"]["Enums"]["priority_level"] | null
+          space_id: string | null
+          status: Database["public"]["Enums"]["item_status"] | null
+          type: Database["public"]["Enums"]["task_type"]
+          updated_at: string
+          user_id: string
         }
-        Returns: string
-      }
-      fn_spawn_chain_node: {
-        Args: {
-          new_body?: string
-          new_name: string
-          new_type: Database["public"]["Enums"]["task_type"]
-          origin_or_spawning_id: string
+        SetofOptions: {
+          from: "*"
+          to: "action_node"
+          isOneToOne: true
+          isSetofReturn: false
         }
-        Returns: string
       }
+      fn_start_session: { Args: { p_node_id: string }; Returns: string }
       fn_task_tree: {
         Args: { root_id: string }
         Returns: {
@@ -949,23 +1151,11 @@ export type Database = {
       item_bucket: "needs_doing" | "someday" | "maybe"
       item_status: "open" | "in_progress" | "waiting" | "done" | "cancelled"
       item_type: "space" | "task" | "note" | "inbox" | "person"
+      node_phase: "discovery" | "plan" | "executing" | "retro"
       priority_level: "high" | "medium" | "low"
-      relation_type:
-        | "relates_to"
-        | "blocks"
-        | "duplicate_of"
-        | "spawned_from"
-        | "branched_from"
-      task_type:
-        | "task"
-        | "bug"
-        | "improvement"
-        | "feature"
-        | "idea"
-        | "thought"
-        | "context_gathering"
-        | "plan"
-        | "project"
+      relation_type: "relates_to" | "blocks" | "duplicate_of" | "branched_from"
+      session_status: "active" | "paused" | "done" | "abandoned"
+      task_type: "task" | "bug" | "improvement" | "feature" | "idea" | "thought"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1114,25 +1304,11 @@ export const Constants = {
       item_bucket: ["needs_doing", "someday", "maybe"],
       item_status: ["open", "in_progress", "waiting", "done", "cancelled"],
       item_type: ["space", "task", "note", "inbox", "person"],
+      node_phase: ["discovery", "plan", "executing", "retro"],
       priority_level: ["high", "medium", "low"],
-      relation_type: [
-        "relates_to",
-        "blocks",
-        "duplicate_of",
-        "spawned_from",
-        "branched_from",
-      ],
-      task_type: [
-        "task",
-        "bug",
-        "improvement",
-        "feature",
-        "idea",
-        "thought",
-        "context_gathering",
-        "plan",
-        "project",
-      ],
+      relation_type: ["relates_to", "blocks", "duplicate_of", "branched_from"],
+      session_status: ["active", "paused", "done", "abandoned"],
+      task_type: ["task", "bug", "improvement", "feature", "idea", "thought"],
     },
   },
 } as const

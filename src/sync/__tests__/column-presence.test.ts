@@ -1,8 +1,8 @@
 /**
- * column-presence.test.ts — Phase 2 task 2.4
+ * column-presence.test.ts — Phase 2 task 2.4 (updated Phase 4)
  *
  * Boots wasm-SQLite in-process (happy-dom env), runs migrations, seeds
- * fixtures, then for each of the 9 slice loaders asserts:
+ * fixtures, then for each of the slice loaders asserts:
  *
  *   Forward check: every column in the SELECT clause is present on at least
  *   one returned row (seed guarantees ≥1 row per loader).
@@ -29,10 +29,8 @@ import {
   sqliteClosedTasks,
   sqliteClosedProjects,
   sqliteInbox,
-  sqliteChainStatus,
   sqlitePinnedDoneTasks,
   sqliteRecentItems,
-  sqliteChainNodes,
 } from '../querySources'
 
 // ---------------------------------------------------------------------------
@@ -168,11 +166,6 @@ const LOADERS: LoaderSpec[] = [
     sourceTableOrView: 'v_new_inbox',
   },
   {
-    name: 'sqliteChainStatus',
-    sql: sqliteChainStatus,
-    sourceTableOrView: 'v_chain_status',
-  },
-  {
     name: 'sqlitePinnedDoneTasks',
     sql: sqlitePinnedDoneTasks,
     sourceTableOrView: 'action_node',
@@ -180,11 +173,6 @@ const LOADERS: LoaderSpec[] = [
   {
     name: 'sqliteRecentItems',
     sql: sqliteRecentItems,
-    sourceTableOrView: 'action_node',
-  },
-  {
-    name: 'sqliteChainNodes',
-    sql: sqliteChainNodes,
     sourceTableOrView: 'action_node',
   },
 ]
@@ -227,4 +215,23 @@ describe('column-presence — reverse check (query columns exist in schema)', ()
       }
     })
   }
+})
+
+describe('column-presence — schema invariants', () => {
+  it('action_node does NOT have chain_origin_id', () => {
+    const cols = tableColumns('action_node')
+    expect(cols.has('chain_origin_id')).toBe(false)
+  })
+
+  it('action_node has git_backed and git_pr_url', () => {
+    const cols = tableColumns('action_node')
+    expect(cols.has('git_backed')).toBe(true)
+    expect(cols.has('git_pr_url')).toBe(true)
+  })
+
+  it('v_chain_status view does NOT exist', () => {
+    // If the view doesn't exist, pragma_table_info returns no rows.
+    const rows = selectRows(`SELECT name FROM pragma_table_info('v_chain_status')`)
+    expect(rows.length).toBe(0)
+  })
 })

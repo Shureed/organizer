@@ -2,11 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { useDataStore, useUIStore } from '../store/appState'
 import { loadTodayView } from '../hooks/useDataLoader'
 import { TaskCard } from '../components/shared/TaskCard'
-import { TypeBadge } from '../components/shared/TypeBadge'
-import { StatusChip } from '../components/shared/StatusChip'
-import type { ActiveTask, ChainStatusItem, ChainNode } from '../store/appState'
-
-const EMPTY_CHAIN_NODES: ChainNode[] = []
+import type { ActiveTask } from '../store/appState'
 
 const AddTaskDialog = lazy(() => import('../components/today/AddTaskDialog'))
 
@@ -65,54 +61,6 @@ function CollapsibleSection({
           {children}
         </div>
       )}
-    </div>
-  )
-}
-
-// ── Chain Status Card ──────────────────────────────────────────────────────────
-function ChainStatusCard({ item, onOpenTask }: { item: ChainStatusItem; onOpenTask: (id: string) => void }) {
-  const chainNodes = useDataStore(s => s.data.chainNodesByOrigin[item.origin_id ?? ''] ?? EMPTY_CHAIN_NODES)
-
-  return (
-    <div
-      style={{
-        backgroundColor: 'var(--surface)',
-        border: '1px solid var(--border)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
-      }}
-      className="rounded-xl overflow-hidden flex flex-col"
-    >
-      <button
-        onClick={() => item.origin_id && onOpenTask(item.origin_id)}
-        className="flex items-center gap-2 px-3 py-2.5 text-left w-full"
-        style={{ backgroundColor: 'transparent' }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--surface2)' }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
-      >
-        <TypeBadge type={item.origin_type} />
-        <span style={{ color: 'var(--text)' }} className="flex-1 text-sm font-medium truncate">
-          {item.origin_name}
-        </span>
-        <StatusChip status={item.origin_status} />
-      </button>
-      {chainNodes.map((node) => (
-        <div key={node.id}>
-          <div style={{ height: '1px', backgroundColor: 'var(--border)' }} className="mx-3" />
-          <button
-            onClick={() => onOpenTask(node.id)}
-            className="flex items-center gap-2 px-3 py-2 text-left w-full"
-            style={{ backgroundColor: 'transparent' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--surface2)' }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
-          >
-            <TypeBadge type={node.type} />
-            <span style={{ color: 'var(--text-muted)' }} className="flex-1 text-sm truncate">
-              {node.name}
-            </span>
-            <StatusChip status={node.status} />
-          </button>
-        </div>
-      ))}
     </div>
   )
 }
@@ -214,18 +162,6 @@ export function TodayView() {
           ))
         )}
       </CollapsibleSection>
-
-      {/* Active Chains */}
-      {data.chainStatus.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <p style={{ color: 'var(--text)' }} className="text-sm font-semibold">Active Chains</p>
-          <div className="flex flex-col gap-2">
-            {data.chainStatus.map((item) => (
-              <ChainStatusCard key={item.origin_id} item={item} onOpenTask={(id) => patchUI({ openTaskId: id })} />
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* FAB */}
       <button

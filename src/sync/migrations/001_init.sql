@@ -28,7 +28,6 @@ CREATE TABLE IF NOT EXISTS action_node (
   completed_at     TEXT,
   archived         INTEGER NOT NULL DEFAULT 0,
   pinned           INTEGER NOT NULL DEFAULT 0,
-  chain_origin_id  TEXT,
   git_backed       INTEGER NOT NULL DEFAULT 0,
   git_pr_url       TEXT,
   -- Denormalised join columns: pulled from server view payload (plan §4.4).
@@ -48,7 +47,6 @@ CREATE INDEX IF NOT EXISTS idx_an_updated_at ON action_node(updated_at);
 CREATE INDEX IF NOT EXISTS idx_an_parent     ON action_node(parent_id);
 CREATE INDEX IF NOT EXISTS idx_an_status     ON action_node(status, archived);
 CREATE INDEX IF NOT EXISTS idx_an_type       ON action_node(type, archived);
-CREATE INDEX IF NOT EXISTS idx_an_chain      ON action_node(chain_origin_id);
 CREATE INDEX IF NOT EXISTS idx_an_dirty      ON action_node(_dirty) WHERE _dirty = 1;
 
 -- ── inbox ──────────────────────────────────────────────────────────────────
@@ -147,25 +145,6 @@ CREATE VIEW IF NOT EXISTS v_new_inbox AS
   WHERE archived = 0
     AND _deleted = 0
   ORDER BY pinned DESC, created_at DESC;
-
-CREATE VIEW IF NOT EXISTS v_chain_status AS
-  SELECT
-    o.id     AS origin_id,
-    o.name   AS origin_name,
-    o.type   AS origin_type,
-    o.status AS origin_status,
-    json_group_array(
-      (n.type || ': ' || n.name || ' [' || n.status || ']')
-    ) AS chain_nodes
-  FROM action_node o
-  JOIN action_node n
-    ON n.chain_origin_id = o.id
-   AND n.archived = 0
-   AND n._deleted = 0
-  WHERE o.archived = 0
-    AND o.status NOT IN ('done', 'cancelled')
-    AND o._deleted = 0
-  GROUP BY o.id, o.name, o.type, o.status;
 
 -- ── Boot-time cleanup ───────────────────────────────────────────────────────
 -- Reset any rows stuck in 'replaying' state from a previous hard-kill.

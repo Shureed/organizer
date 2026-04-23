@@ -48,7 +48,6 @@ CREATE TABLE IF NOT EXISTS action_node (
   completed_at     TEXT,
   archived         INTEGER NOT NULL DEFAULT 0,
   pinned           INTEGER NOT NULL DEFAULT 0,
-  chain_origin_id  TEXT,
   git_backed       INTEGER NOT NULL DEFAULT 0,
   git_pr_url       TEXT,
   -- denormalised join cols (populated by view-pull in pull.ts; NULL for base-table-only rows)
@@ -67,7 +66,6 @@ CREATE INDEX IF NOT EXISTS idx_an_updated_at  ON action_node(updated_at);
 CREATE INDEX IF NOT EXISTS idx_an_parent      ON action_node(parent_id);
 CREATE INDEX IF NOT EXISTS idx_an_status      ON action_node(status, archived);
 CREATE INDEX IF NOT EXISTS idx_an_type        ON action_node(type, archived);
-CREATE INDEX IF NOT EXISTS idx_an_chain       ON action_node(chain_origin_id);
 -- Partial index for outbox dirty-scan (SQLite supports WHERE clauses on indexes)
 CREATE INDEX IF NOT EXISTS idx_an_dirty       ON action_node(_dirty) WHERE _dirty = 1;
 
@@ -236,36 +234,3 @@ CREATE VIEW IF NOT EXISTS v_new_inbox AS
     AND _deleted = 0
   ORDER BY pinned DESC, created_at DESC;
 
--- v_chain_status
--- Server (Postgres):
---   SELECT o.id AS origin_id, o.name AS origin_name,
---          o.type AS origin_type, o.status AS origin_status,
---          array_agg(
---            (n.type || ': ' || n.name || ' [' || n.status || ']')
---            ORDER BY n.created_at
---          ) AS chain_nodes
---   FROM action_node o
---   JOIN action_node n ON n.chain_origin_id = o.id AND NOT n.archived
---   WHERE NOT o.archived
---     AND o.status NOT IN ('done','cancelled')
---   GROUP BY o.id, o.name, o.type, o.status;
---
--- NOTE: json_group_array returns a JSON string; queries.ts parses it.
-CREATE VIEW IF NOT EXISTS v_chain_status AS
-  SELECT
-    o.id     AS origin_id,
-    o.name   AS origin_name,
-    o.type   AS origin_type,
-    o.status AS origin_status,
-    json_group_array(
-      (n.type || ': ' || n.name || ' [' || n.status || ']')
-    ) AS chain_nodes
-  FROM action_node o
-  JOIN action_node n
-    ON n.chain_origin_id = o.id
-   AND n.archived = 0
-   AND n._deleted = 0
-  WHERE o.archived = 0
-    AND o.status NOT IN ('done', 'cancelled')
-    AND o._deleted = 0
-  GROUP BY o.id, o.name, o.type, o.status;

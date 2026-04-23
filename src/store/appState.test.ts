@@ -22,8 +22,6 @@ const resetDataStore = () =>
       closedTasks: [],
       closedProjects: [],
       inbox: [],
-      chainStatus: [],
-      chainNodesByOrigin: {},
       pinnedDoneTasks: [],
       recentItems: [],
     },
@@ -99,35 +97,27 @@ describe('DataStore.setData', () => {
       tasks: [{ id: 'task-1' } as never],
       projects: [{ id: 'proj-1' } as never],
     })
-    // Merge only chainStatus — tasks and projects must survive.
+    // Merge only pinnedDoneTasks — tasks and projects must survive.
     useDataStore.getState().setData({
-      chainStatus: [
-        {
-          origin_id: 'orig-1',
-          origin_name: 'Origin',
-          origin_type: 'project',
-          origin_status: 'active',
-          chain_nodes: [],
-        },
-      ],
+      pinnedDoneTasks: [{ id: 'pinned-1' } as never],
     })
     const { data } = useDataStore.getState()
     expect(data.tasks).toHaveLength(1)
     expect(data.projects).toHaveLength(1)
-    expect(data.chainStatus).toHaveLength(1)
-    expect(data.chainStatus[0].origin_id).toBe('orig-1')
+    expect(data.pinnedDoneTasks).toHaveLength(1)
+    expect(data.pinnedDoneTasks[0].id).toBe('pinned-1')
   })
 
-  it('chainNodesByOrigin patch does not clobber unrelated slices', () => {
+  it('recentItems patch does not clobber unrelated slices', () => {
+    useDataStore.getState().setData({
+      inbox: [{ id: 'inbox-1' } as never],
+    })
     useDataStore.getState().setData({
       recentItems: [{ id: 'r1', name: 'R', status: 'open', updated_at: '', type: 'task', priority: null }],
     })
-    useDataStore.getState().setData({
-      chainNodesByOrigin: { 'orig-1': [{ id: 'n1', name: 'Node 1', type: 'task', status: 'active', chain_origin_id: 'orig-1' }] },
-    })
     const { data } = useDataStore.getState()
+    expect(data.inbox).toHaveLength(1)
     expect(data.recentItems).toHaveLength(1)
-    expect(data.chainNodesByOrigin['orig-1']).toHaveLength(1)
   })
 })
 
