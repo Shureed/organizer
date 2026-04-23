@@ -2,7 +2,10 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import { useDataStore, useUIStore } from '../store/appState'
 import { loadTodayView } from '../hooks/useDataLoader'
 import { TaskCard } from '../components/shared/TaskCard'
-import type { ActiveTask } from '../store/appState'
+import { TypeBadge } from '../components/shared/TypeBadge'
+import { PhaseBadge } from '../components/shared/PhaseBadge'
+import type { NodePhase } from '../components/shared/PhaseBadge'
+import type { ActionNode, ActiveTask } from '../store/appState'
 
 const AddTaskDialog = lazy(() => import('../components/today/AddTaskDialog'))
 
@@ -65,9 +68,103 @@ function CollapsibleSection({
   )
 }
 
+// ── Phase Progression Pips ─────────────────────────────────────────────────────
+const PHASE_ORDER: NodePhase[] = ['discovery', 'plan', 'executing', 'retro']
+
+function PhasePips({ phase }: { phase: NodePhase | null | undefined }) {
+  const currentIndex = phase ? PHASE_ORDER.indexOf(phase) : -1
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {PHASE_ORDER.map((p, i) => {
+        const isPast = i < currentIndex
+        const isCurrent = i === currentIndex
+        const isFuture = i > currentIndex
+
+        let bg: string
+        let border: string
+        if (isCurrent) {
+          bg = 'var(--accent)'
+          border = 'var(--accent)'
+        } else if (isPast) {
+          bg = 'var(--text-muted)'
+          border = 'var(--text-muted)'
+        } else {
+          bg = 'transparent'
+          border = 'var(--border)'
+        }
+
+        return (
+          <div key={p} className="flex items-center gap-0.5">
+            <div
+              title={p}
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                backgroundColor: bg,
+                border: `1.5px solid ${border}`,
+                flexShrink: 0,
+                opacity: isFuture ? 0.4 : 1,
+              }}
+            />
+            {i < PHASE_ORDER.length - 1 && (
+              <div
+                style={{
+                  width: '8px',
+                  height: '1px',
+                  backgroundColor: isPast || isCurrent ? 'var(--text-muted)' : 'var(--border)',
+                  opacity: isFuture && i >= currentIndex ? 0.4 : 1,
+                }}
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Active Container Row ───────────────────────────────────────────────────────
+function ContainerRow({
+  node,
+  onClick,
+}: {
+  node: ActionNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left"
+    >
+      <div
+        style={{
+          background: 'var(--surface)',
+          border: '1px solid var(--border)',
+        }}
+        className="rounded-xl px-3 py-2.5 flex items-center gap-2 hover:brightness-110 transition-all active:scale-[0.99]"
+      >
+        <TypeBadge type={node.type} />
+        <span
+          style={{ color: 'var(--text)' }}
+          className="flex-1 text-sm truncate min-w-0"
+        >
+          {node.name}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <PhaseBadge phase={node.phase as NodePhase | null} />
+          <PhasePips phase={node.phase as NodePhase | null} />
+        </div>
+      </div>
+    </button>
+  )
+}
+
 // ── Main View ──────────────────────────────────────────────────────────────────
 export function TodayView() {
   const data = useDataStore((s) => s.data)
+  const activeContainers = useDataStore((s) => s.data.activeContainers)
   const patchUI = useUIStore((s) => s.patchUI)
   const [showAddTask, setShowAddTask] = useState(false)
 
@@ -101,6 +198,27 @@ export function TodayView() {
       className="flex flex-col gap-5 px-4 pt-5"
       style={{ paddingBottom: '80px', minHeight: '100%' }}
     >
+      {/* Active Containers */}
+      <CollapsibleSection
+        title="Active Containers"
+        count={activeContainers.length}
+        defaultOpen={true}
+      >
+        {activeContainers.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)' }} className="text-sm py-2">
+            No containers in progress.
+          </p>
+        ) : (
+          activeContainers.map((node) => (
+            <ContainerRow
+              key={node.id}
+              node={node}
+              onClick={() => patchUI({ openTaskId: node.id })}
+            />
+          ))
+        )}
+      </CollapsibleSection>
+
       {/* Pinned tasks */}
       {pinnedTasks.length > 0 && (
         <CollapsibleSection

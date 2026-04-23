@@ -145,6 +145,23 @@ export async function loadPinnedDoneTasks(force = false): Promise<void> {
   lastFetchedAt.set(key, Date.now())
 }
 
+export async function loadActiveContainers(force = false): Promise<void> {
+  const key = 'activeContainers'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data, error } = await supabase
+    .from('action_node')
+    .select('*')
+    .in('type', ['improvement', 'feature', 'bug', 'idea'])
+    .eq('status', 'in_progress')
+    .eq('archived', false)
+    .order('updated_at', { ascending: false })
+
+  if (error) throw error
+  getSetData()({ activeContainers: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
 export async function loadRecentItems(force = false): Promise<void> {
   if (await sqliteReady()) return sqliteRecentItems()
 
@@ -195,6 +212,7 @@ export type SliceKey =
   | 'pinnedDoneTasks'
   | 'recentItems'
   | 'inbox'
+  | 'activeContainers'
 
 /**
  * Central slice loader dispatch with per-slice error catch (T9 plan §T9.5).
@@ -212,6 +230,7 @@ export const sliceLoaders: Record<SliceKey, (force?: boolean) => Promise<void>> 
   pinnedDoneTasks: (f) => loadPinnedDoneTasks(f).catch((e) => console.error('[sliceLoader:pinnedDoneTasks] failed', e)),
   recentItems: (f) => loadRecentItems(f).catch((e) => console.error('[sliceLoader:recentItems] failed', e)),
   inbox: (f) => loadInbox(f).catch((e) => console.error('[sliceLoader:inbox] failed', e)),
+  activeContainers: (f) => loadActiveContainers(f).catch((e) => console.error('[sliceLoader:activeContainers] failed', e)),
 }
 
 // Module-level loadAll — used by useRealtime for reconnect/visibility reconciliation.
@@ -225,6 +244,7 @@ export function loadAll(): Promise<unknown[]> {
     loadInbox(true),
     loadPinnedDoneTasks(true),
     loadRecentItems(true),
+    loadActiveContainers(true),
   ])
 }
 
@@ -235,12 +255,13 @@ export function loadAll(): Promise<unknown[]> {
 export const loadShellSeed = (): Promise<void> => loadTasks()
 
 export const loadTodayView = (): Promise<unknown> =>
-  Promise.all([loadTasks(), loadProjects(), loadPinnedDoneTasks()])
+  Promise.all([loadTasks(), loadProjects(), loadPinnedDoneTasks(), loadActiveContainers()])
 
 export const loadCalendarView = (): Promise<unknown> =>
   Promise.all([loadTasks(), loadClosedTasks()])
 
-export const loadIssuesView = (): Promise<void> => loadTasks()
+export const loadIssuesView = (): Promise<unknown> =>
+  Promise.all([loadTasks(), loadActiveContainers()])
 
 export const loadRecentsView = (): Promise<void> => loadRecentItems()
 
@@ -270,6 +291,7 @@ export function useDataLoader() {
     loadInbox(true),
     loadPinnedDoneTasks(true),
     loadRecentItems(true),
+    loadActiveContainers(true),
   ])
 
   return {
@@ -283,6 +305,7 @@ export function useDataLoader() {
     loadInbox,
     loadPinnedDoneTasks,
     loadRecentItems,
+    loadActiveContainers,
   }
 }
 

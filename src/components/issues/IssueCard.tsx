@@ -1,10 +1,13 @@
 import type { ActiveTask } from '../../store/appState'
 import { TypeBadge } from '../shared/TypeBadge'
+import { PhaseBadge } from '../shared/PhaseBadge'
+import type { NodePhase } from '../shared/PhaseBadge'
 import { StatusChip } from '../shared/StatusChip'
 import { PriorityDot } from '../shared/PriorityDot'
 
 interface IssueCardProps {
   task: ActiveTask
+  phase?: NodePhase | null
   onClick: () => void
 }
 
@@ -14,7 +17,7 @@ function formatDate(dateStr: string | null | undefined): string | null {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-export function IssueCard({ task, onClick }: IssueCardProps) {
+export function IssueCard({ task, phase, onClick }: IssueCardProps) {
   const formattedDate = formatDate(task.date)
 
   return (
@@ -29,9 +32,12 @@ export function IssueCard({ task, onClick }: IssueCardProps) {
         }}
         className="rounded-xl p-3 space-y-2 hover:brightness-110 transition-all active:scale-[0.99]"
       >
-        {/* Top row: TypeBadge */}
+        {/* Top row: TypeBadge + PhaseBadge */}
         <div className="flex items-center justify-between gap-2">
-          <TypeBadge type={task.type} />
+          <div className="flex items-center gap-1.5">
+            <TypeBadge type={task.type} />
+            <PhaseBadge phase={phase} />
+          </div>
           <PriorityDot priority={task.priority} />
         </div>
 
