@@ -12,7 +12,7 @@ import {
 import { useAuth } from './hooks/useAuth'
 import { useDataLoader, loadShellSeed } from './hooks/useDataLoader'
 import { useRealtime } from './hooks/useRealtime'
-import { initialSync, syncAll } from './sync/pull'
+import { initialSync, maybeRunSchemaRepair, syncAll } from './sync/pull'
 import { query } from './sync/client'
 import { resetInFlight } from './sync/outbox'
 import { useUIStore, useDataStore } from './store/appState'
@@ -213,13 +213,19 @@ function MainApp({ session }: MainAppProps) {
     loadShellSeed()
   }, [])
 
-  // SQLite bootstrap: initialSync on empty DB, deltaPull otherwise (T9 plan §4.5)
+  // SQLite bootstrap: initialSync on empty DB, deltaPull otherwise (T9 plan §4.5).
+  // PR-B T7: before the normal empty-OPFS check, run maybeRunSchemaRepair() —
+  // it no-ops on clients already at SYNC_SCHEMA_VERSION, and on older clients
+  // wipes last_pull_* cursors + re-runs initialSync() under the compound-cursor
+  // fix so no rows stay silently dropped across the upgrade.
   useEffect(() => {
     if (import.meta.env.VITE_SQLITE_READS !== 'true') return
     ;(async () => {
       try {
         // Reset any in-flight outbox entries from a previous hard-kill.
         await resetInFlight()
+        const repaired = await maybeRunSchemaRepair()
+        if (repaired) return
         const [{ count }] = await query<{ count: number }>(
           'SELECT COUNT(*) as count FROM action_node',
         )
