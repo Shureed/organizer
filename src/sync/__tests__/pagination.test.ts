@@ -163,7 +163,6 @@ function buildAdversarialRows(): Record<string, unknown>[] {
     completed_at: null,
     archived: false,
     pinned: false,
-    chain_origin_id: null,
     git_backed: false,
     git_pr_url: null,
     project_name: null,

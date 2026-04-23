@@ -8,22 +8,7 @@ export type ActiveProject = Tables<'v_active_projects'>
 export type Space = Tables<'spaces'>
 export type SpaceTree = Tables<'v_space_tree'>
 export type InboxItem = Tables<'v_new_inbox'>
-export type ChainStatusItem = {
-  origin_id: string | null
-  origin_name: string | null
-  origin_type: string | null
-  origin_status: string | null
-  chain_nodes: string[] | null
-}
 export type ActionNode = Tables<'action_node'>
-
-export type ChainNode = {
-  id: string
-  name: string
-  type: string
-  status: string
-  chain_origin_id: string
-}
 
 export interface SearchItem {
   type: string
@@ -41,8 +26,6 @@ export interface AppData {
   closedTasks: ActionNode[]
   closedProjects: ActionNode[]
   inbox: InboxItem[]
-  chainStatus: ChainStatusItem[]
-  chainNodesByOrigin: Record<string, ChainNode[]>
   pinnedDoneTasks: ActionNode[]
   recentItems: Pick<ActionNode, 'id' | 'name' | 'status' | 'updated_at' | 'type' | 'priority'>[]
 }
@@ -74,8 +57,6 @@ const initialData: AppData = {
   closedTasks: [],
   closedProjects: [],
   inbox: [],
-  chainStatus: [],
-  chainNodesByOrigin: {},
   pinnedDoneTasks: [],
   recentItems: [],
 }

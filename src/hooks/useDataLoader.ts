@@ -7,14 +7,11 @@ import {
   sqliteClosedTasks,
   sqliteClosedProjects,
   sqliteInbox,
-  sqliteChainStatus,
   sqlitePinnedDoneTasks,
   sqliteRecentItems,
-  sqliteChainNodes,
   getComments,
 } from '../sync/queries'
 import type { CommentRow } from '../components/shared/CommentSection'
-import type { ChainNode } from '../store/appState'
 
 // ── Flag helpers ─────────────────────────────────────────────────────────────
 
@@ -86,7 +83,8 @@ export async function loadClosedTasks(force = false): Promise<void> {
     .select('*')
     .in('status', ['done', 'cancelled'])
     .eq('archived', false)
-    .neq('type', 'project')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .neq('type' as any, 'project')
 
   if (error) throw error
   getSetData()({ closedTasks: data ?? [] })
@@ -102,7 +100,8 @@ export async function loadClosedProjects(force = false): Promise<void> {
   const { data, error } = await supabase
     .from('action_node')
     .select('*')
-    .eq('type', 'project')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .eq('type' as any, 'project')
     .in('status', ['done', 'cancelled'])
     .eq('archived', false)
 
@@ -124,21 +123,6 @@ export async function loadInbox(force = false): Promise<void> {
 
   if (error) throw error
   getSetData()({ inbox: data ?? [] })
-  lastFetchedAt.set(key, Date.now())
-}
-
-export async function loadChainStatus(force = false): Promise<void> {
-  if (await sqliteReady()) return sqliteChainStatus()
-
-  const key = 'chainStatus'
-  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-
-  const { data, error } = await supabase
-    .from('v_chain_status')
-    .select('*')
-
-  if (error) throw error
-  getSetData()({ chainStatus: data ?? [] })
   lastFetchedAt.set(key, Date.now())
 }
 
@@ -197,33 +181,6 @@ export function withErrorSurfacing(
   }
 }
 
-async function loadChainNodes(originIds: string[], _force = false): Promise<void> {
-  if (await sqliteReady()) return sqliteChainNodes(originIds)
-
-  const key = 'chainNodes'
-  if (!_force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
-  if (originIds.length === 0) return
-
-  const { data, error } = await supabase
-    .from('action_node')
-    .select('id, name, type, status, chain_origin_id')
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .in('chain_origin_id' as any, originIds)
-    .eq('archived', false)
-    .order('created_at', { ascending: true })
-
-  if (error || !data) return
-
-  const grouped: Record<string, ChainNode[]> = {}
-  for (const row of data) {
-    const k = (row as ChainNode).chain_origin_id
-    if (!k) continue
-    ;(grouped[k] ||= []).push(row as ChainNode)
-  }
-  useAppStore.getState().setData({ chainNodesByOrigin: grouped })
-  lastFetchedAt.set(key, Date.now())
-}
-
 // ── Invalidation bus exports ────────────────────────────────────────────────────────
 // SliceKey + sliceLoaders let useRealtime fan out a realtime payload to the
 // correct force-refetch functions without importing each loader individually.
@@ -237,7 +194,6 @@ export type SliceKey =
   | 'closedProjects'
   | 'pinnedDoneTasks'
   | 'recentItems'
-  | 'chainStatus'
   | 'inbox'
 
 /**
@@ -255,7 +211,6 @@ export const sliceLoaders: Record<SliceKey, (force?: boolean) => Promise<void>> 
   closedProjects: (f) => loadClosedProjects(f).catch((e) => console.error('[sliceLoader:closedProjects] failed', e)),
   pinnedDoneTasks: (f) => loadPinnedDoneTasks(f).catch((e) => console.error('[sliceLoader:pinnedDoneTasks] failed', e)),
   recentItems: (f) => loadRecentItems(f).catch((e) => console.error('[sliceLoader:recentItems] failed', e)),
-  chainStatus: (f) => loadChainStatus(f).catch((e) => console.error('[sliceLoader:chainStatus] failed', e)),
   inbox: (f) => loadInbox(f).catch((e) => console.error('[sliceLoader:inbox] failed', e)),
 }
 
@@ -268,7 +223,6 @@ export function loadAll(): Promise<unknown[]> {
     loadClosedTasks(true),
     loadClosedProjects(true),
     loadInbox(true),
-    loadChainStatus(true),
     loadPinnedDoneTasks(true),
     loadRecentItems(true),
   ])
@@ -280,11 +234,8 @@ export function loadAll(): Promise<unknown[]> {
 
 export const loadShellSeed = (): Promise<void> => loadTasks()
 
-export const loadTodayView = async (): Promise<void> => {
-  await Promise.all([loadTasks(), loadProjects(), loadChainStatus(), loadPinnedDoneTasks()])
-  const ids = useAppStore.getState().data.chainStatus.map(c => c.origin_id).filter(Boolean) as string[]
-  if (ids.length) await loadChainNodes(ids)
-}
+export const loadTodayView = (): Promise<unknown> =>
+  Promise.all([loadTasks(), loadProjects(), loadPinnedDoneTasks()])
 
 export const loadCalendarView = (): Promise<unknown> =>
   Promise.all([loadTasks(), loadClosedTasks()])
@@ -299,18 +250,14 @@ export const loadInboxView = (): Promise<void> => loadInbox()
 // Provides forced-refresh variants and the loadAll escape hatch for mutations.
 export function useDataLoader() {
   // Recomposed refresh functions (force = true bypasses dedup)
-  const refreshTasks = async () => {
-    await Promise.all([
+  const refreshTasks = (): Promise<unknown> =>
+    Promise.all([
       loadTasks(true),
       loadProjects(true),
       loadClosedTasks(true),
       loadPinnedDoneTasks(true),
       loadRecentItems(true),
-      loadChainStatus(true),
     ])
-    const ids = useAppStore.getState().data.chainStatus.map(c => c.origin_id).filter(Boolean) as string[]
-    if (ids.length) await loadChainNodes(ids, true)
-  }
 
   const refreshInbox = () => loadInbox(true)
 
@@ -321,7 +268,6 @@ export function useDataLoader() {
     loadClosedTasks(true),
     loadClosedProjects(true),
     loadInbox(true),
-    loadChainStatus(true),
     loadPinnedDoneTasks(true),
     loadRecentItems(true),
   ])
@@ -335,7 +281,6 @@ export function useDataLoader() {
     loadClosedTasks,
     loadClosedProjects,
     loadInbox,
-    loadChainStatus,
     loadPinnedDoneTasks,
     loadRecentItems,
   }

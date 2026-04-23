@@ -4,7 +4,7 @@ import { IssueCard } from '../components/issues/IssueCard'
 import { ScrollArea } from '../components/ui/scroll-area'
 import { loadIssuesView } from '../hooks/useDataLoader'
 
-const ISSUE_TYPES = ['bug', 'improvement', 'feature', 'idea', 'thought', 'context_gathering', 'plan'] as const
+const ISSUE_TYPES = ['bug', 'improvement', 'feature', 'idea', 'thought'] as const
 const TASK_TYPES_EXCLUDED = new Set(['task', 'project'])
 
 const PRIORITY_RANK: Record<string, number> = {
@@ -78,7 +78,7 @@ export function IssuesView() {
             <option value="">All Types</option>
             {ISSUE_TYPES.map((t) => (
               <option key={t} value={t}>
-                {t === 'context_gathering' ? 'context' : t}
+                {t}
               </option>
             ))}
           </select>

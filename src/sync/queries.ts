@@ -5,29 +5,13 @@
  * shape.  Each function calls client.query<T>() against the local views /
  * tables and dispatches into the Zustand store.
  *
- * v_chain_status deviation (plan §5, PR-B deviation note):
- *   The local view uses json_group_array() which returns a JSON string, not a
- *   Postgres TEXT[].  We JSON.parse() chain_nodes before storing so downstream
- *   consumers see a string[] identical to the server shape.
- *
  * Ordering: preserved to match the REST queries in useDataLoader.ts so that
  * switching the flag does not reorder rows in the UI.
  */
 
 import { query } from './client'
 import { useDataStore } from '../store/appState'
-import type { ChainNode } from '../store/appState'
 import type { SqlBindings } from './db.worker'
-
-// ── Type helpers ─────────────────────────────────────────────────────────────
-
-interface RawChainStatus {
-  origin_id: string
-  origin_name: string
-  origin_type: string
-  origin_status: string
-  chain_nodes: string // JSON string from json_group_array
-}
 
 // ── Slice query functions ────────────────────────────────────────────────────
 
@@ -85,25 +69,6 @@ export async function sqliteInbox(): Promise<void> {
   useDataStore.getState().setData({ inbox: rows as never[] })
 }
 
-export async function sqliteChainStatus(): Promise<void> {
-  const rawRows = await query<RawChainStatus>(
-    `SELECT origin_id, origin_name, origin_type, origin_status, chain_nodes
-       FROM v_chain_status`,
-  )
-  // Parse the JSON string that json_group_array() produces into string[]
-  const rows = rawRows.map((r) => ({
-    ...r,
-    chain_nodes: (() => {
-      try {
-        return JSON.parse(r.chain_nodes) as string[]
-      } catch {
-        return []
-      }
-    })(),
-  }))
-  useDataStore.getState().setData({ chainStatus: rows as never[] })
-}
-
 export async function sqlitePinnedDoneTasks(): Promise<void> {
   const rows = await query(
     `SELECT *
@@ -127,29 +92,6 @@ export async function sqliteRecentItems(): Promise<void> {
       LIMIT 25`,
   )
   useDataStore.getState().setData({ recentItems: rows as never[] })
-}
-
-export async function sqliteChainNodes(originIds: string[]): Promise<void> {
-  if (originIds.length === 0) return
-  // SQLite doesn't support parameterised IN lists the same way, so we inline
-  // the quoted id list.  IDs are UUIDs (hex + hyphens only) — safe to inline.
-  const placeholders = originIds.map(() => '?').join(', ')
-  const rows = await query<ChainNode>(
-    `SELECT id, name, type, status, chain_origin_id
-       FROM action_node
-      WHERE chain_origin_id IN (${placeholders})
-        AND archived = 0
-        AND _deleted = 0
-      ORDER BY created_at ASC`,
-    originIds as unknown as SqlBindings,
-  )
-  const grouped: Record<string, ChainNode[]> = {}
-  for (const row of rows) {
-    const k = row.chain_origin_id
-    if (!k) continue
-    ;(grouped[k] ||= []).push(row)
-  }
-  useDataStore.getState().setData({ chainNodesByOrigin: grouped })
 }
 
 // ── Comments (per-entity) ────────────────────────────────────────────────────

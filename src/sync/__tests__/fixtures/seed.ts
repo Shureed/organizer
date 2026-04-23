@@ -56,8 +56,8 @@ export const FIXTURE_IDS = {
   CLOSED_TASK_ID: 'task-aaaa-0003',
   CLOSED_PROJECT_ID: 'proj-aaaa-0002',
   PINNED_DONE_TASK_ID: 'task-aaaa-0004',
-  CHAIN_ORIGIN_ID: 'task-aaaa-0010',
-  CHAIN_NODE_ID: 'task-aaaa-0011',
+  BRANCHED_FROM_ID: 'task-aaaa-0010',
+  BRANCHED_NODE_ID: 'task-aaaa-0011',
   INBOX_ID: 'inbox-aaaa-0001',
   COMMENT_ID: 'comm-aaaa-0001',
 } as const
@@ -74,7 +74,7 @@ const USER_ID = 'user-test-0001'
  *
  * Covers:
  *   action_node  — project, open tasks, closed task, closed project,
- *                  pinned-done task, chain origin + chain node
+ *                  pinned-done task, branched_from origin + branched node
  *   inbox        — one unarchived inbox item
  *   comments     — one comment row
  *
@@ -88,15 +88,15 @@ export function seed(db: MinimalDb): void {
     sql: `INSERT INTO action_node
       (id, user_id, name, status, type, priority, parent_id, space_id,
        date, bucket, body, completed_at, archived, pinned,
-       chain_origin_id, git_backed, git_pr_url,
+       git_backed, git_pr_url,
        project_name, space_name, space_path,
        created_at, updated_at, _synced_at, _dirty, _deleted)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
     bind: [
       FIXTURE_IDS.PROJECT_ID, USER_ID, 'Test Project', 'open', 'project',
       null, null, 'space-001',
       null, null, 'Project body', null, 0, 0,
-      null, 0, null,
+      0, null,
       null, 'Test Space', 'test/space',
       NOW, NOW, Date.now(),
     ],
@@ -107,15 +107,15 @@ export function seed(db: MinimalDb): void {
     sql: `INSERT INTO action_node
       (id, user_id, name, status, type, priority, parent_id, space_id,
        date, bucket, body, completed_at, archived, pinned,
-       chain_origin_id, git_backed, git_pr_url,
+       git_backed, git_pr_url,
        project_name, space_name, space_path,
        created_at, updated_at, _synced_at, _dirty, _deleted)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
     bind: [
       FIXTURE_IDS.TASK1_ID, USER_ID, 'Open Task 1', 'open', 'task',
       'high', FIXTURE_IDS.PROJECT_ID, 'space-001',
       '2026-01-02', 'today', 'Task body', null, 0, 0,
-      null, 0, null,
+      0, null,
       'Test Project', 'Test Space', 'test/space',
       NOW, NOW, Date.now(),
     ],
@@ -126,15 +126,15 @@ export function seed(db: MinimalDb): void {
     sql: `INSERT INTO action_node
       (id, user_id, name, status, type, priority, parent_id, space_id,
        date, bucket, body, completed_at, archived, pinned,
-       chain_origin_id, git_backed, git_pr_url,
+       git_backed, git_pr_url,
        project_name, space_name, space_path,
        created_at, updated_at, _synced_at, _dirty, _deleted)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
     bind: [
       FIXTURE_IDS.TASK2_ID, USER_ID, 'Open Task 2', 'open', 'task',
       null, null, null,
       null, null, null, null, 0, 0,
-      null, 0, null,
+      0, null,
       null, null, null,
       NOW, NOW, Date.now(),
     ],
@@ -145,15 +145,15 @@ export function seed(db: MinimalDb): void {
     sql: `INSERT INTO action_node
       (id, user_id, name, status, type, priority, parent_id, space_id,
        date, bucket, body, completed_at, archived, pinned,
-       chain_origin_id, git_backed, git_pr_url,
+       git_backed, git_pr_url,
        project_name, space_name, space_path,
        created_at, updated_at, _synced_at, _dirty, _deleted)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
     bind: [
       FIXTURE_IDS.CLOSED_TASK_ID, USER_ID, 'Closed Task', 'done', 'task',
       null, null, null,
       null, null, null, NOW, 0, 0,
-      null, 0, null,
+      0, null,
       null, null, null,
       NOW, NOW, Date.now(),
     ],
@@ -164,15 +164,15 @@ export function seed(db: MinimalDb): void {
     sql: `INSERT INTO action_node
       (id, user_id, name, status, type, priority, parent_id, space_id,
        date, bucket, body, completed_at, archived, pinned,
-       chain_origin_id, git_backed, git_pr_url,
+       git_backed, git_pr_url,
        project_name, space_name, space_path,
        created_at, updated_at, _synced_at, _dirty, _deleted)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
     bind: [
       FIXTURE_IDS.CLOSED_PROJECT_ID, USER_ID, 'Closed Project', 'done', 'project',
       null, null, null,
       null, null, null, NOW, 0, 0,
-      null, 0, null,
+      0, null,
       null, null, null,
       NOW, NOW, Date.now(),
     ],
@@ -183,53 +183,53 @@ export function seed(db: MinimalDb): void {
     sql: `INSERT INTO action_node
       (id, user_id, name, status, type, priority, parent_id, space_id,
        date, bucket, body, completed_at, archived, pinned,
-       chain_origin_id, git_backed, git_pr_url,
+       git_backed, git_pr_url,
        project_name, space_name, space_path,
        created_at, updated_at, _synced_at, _dirty, _deleted)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
     bind: [
       FIXTURE_IDS.PINNED_DONE_TASK_ID, USER_ID, 'Pinned Done Task', 'done', 'task',
       null, null, null,
       null, null, null, NOW, 0, 1,
-      null, 0, null,
+      0, null,
       null, null, null,
       NOW, NOW, Date.now(),
     ],
   })
 
-  // ── Chain origin node (active task that has chain children) ───────────────
+  // ── Origin node (active task that has a branched child) ───────────────────
   db.exec({
     sql: `INSERT INTO action_node
       (id, user_id, name, status, type, priority, parent_id, space_id,
        date, bucket, body, completed_at, archived, pinned,
-       chain_origin_id, git_backed, git_pr_url,
+       git_backed, git_pr_url,
        project_name, space_name, space_path,
        created_at, updated_at, _synced_at, _dirty, _deleted)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
     bind: [
-      FIXTURE_IDS.CHAIN_ORIGIN_ID, USER_ID, 'Chain Origin Task', 'open', 'task',
+      FIXTURE_IDS.BRANCHED_FROM_ID, USER_ID, 'Origin Task', 'open', 'task',
       null, null, null,
       null, null, null, null, 0, 0,
-      null, 0, null,
+      0, null,
       null, null, null,
       NOW, NOW, Date.now(),
     ],
   })
 
-  // ── Chain node (child of origin) ──────────────────────────────────────────
+  // ── Branched node (branched_from origin) ─────────────────────────────────
   db.exec({
     sql: `INSERT INTO action_node
       (id, user_id, name, status, type, priority, parent_id, space_id,
        date, bucket, body, completed_at, archived, pinned,
-       chain_origin_id, git_backed, git_pr_url,
+       git_backed, git_pr_url,
        project_name, space_name, space_path,
        created_at, updated_at, _synced_at, _dirty, _deleted)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0,0)`,
     bind: [
-      FIXTURE_IDS.CHAIN_NODE_ID, USER_ID, 'Chain Plan Node', 'open', 'plan',
-      null, FIXTURE_IDS.CHAIN_ORIGIN_ID, null,
+      FIXTURE_IDS.BRANCHED_NODE_ID, USER_ID, 'Branched Node', 'open', 'task',
+      null, FIXTURE_IDS.BRANCHED_FROM_ID, null,
       null, null, null, null, 0, 0,
-      FIXTURE_IDS.CHAIN_ORIGIN_ID, 0, null,
+      0, null,
       null, null, null,
       NOW, NOW, Date.now(),
     ],

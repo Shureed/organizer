@@ -10,8 +10,6 @@ const TYPE_LABELS: Record<string, string> = {
   feature: 'feature',
   idea: 'idea',
   thought: 'thought',
-  context_gathering: 'context',
-  plan: 'plan',
 }
 
 export function TypeBadge({ type }: TypeBadgeProps) {

@@ -99,13 +99,13 @@ function buildUpsertSql(table: SyncTable, mode: UpsertMode = 'base'): string {
         INSERT INTO action_node (
           id, user_id, name, status, type, priority, parent_id, space_id,
           date, bucket, body, completed_at, archived, pinned,
-          chain_origin_id, git_backed, git_pr_url,
+          git_backed, git_pr_url,
           project_name, space_name, space_path,
           created_at, updated_at, _synced_at, _dirty, _deleted
         ) VALUES (
           ?, ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, ?,
-          ?, ?, ?,
+          ?, ?,
           ?, ?, ?,
           ?, ?, ?, 0, 0
         )
@@ -123,7 +123,6 @@ function buildUpsertSql(table: SyncTable, mode: UpsertMode = 'base'): string {
           completed_at    = excluded.completed_at,
           archived        = excluded.archived,
           pinned          = excluded.pinned,
-          chain_origin_id = excluded.chain_origin_id,
           git_backed      = excluded.git_backed,
           git_pr_url      = excluded.git_pr_url,
           project_name    = excluded.project_name,
@@ -144,13 +143,13 @@ function buildUpsertSql(table: SyncTable, mode: UpsertMode = 'base'): string {
       INSERT INTO action_node (
         id, user_id, name, status, type, priority, parent_id, space_id,
         date, bucket, body, completed_at, archived, pinned,
-        chain_origin_id, git_backed, git_pr_url,
+        git_backed, git_pr_url,
         project_name, space_name, space_path,
         created_at, updated_at, _synced_at, _dirty, _deleted
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
-        ?, ?, ?,
+        ?, ?,
         NULL, NULL, NULL,
         ?, ?, ?, 0, 0
       )
@@ -168,7 +167,6 @@ function buildUpsertSql(table: SyncTable, mode: UpsertMode = 'base'): string {
         completed_at    = excluded.completed_at,
         archived        = excluded.archived,
         pinned          = excluded.pinned,
-        chain_origin_id = excluded.chain_origin_id,
         git_backed      = excluded.git_backed,
         git_pr_url      = excluded.git_pr_url,
         project_name    = COALESCE(action_node.project_name, excluded.project_name),
@@ -229,7 +227,6 @@ function actionNodeBinds(row: Record<string, unknown>, now: number): SqlBindings
     row['completed_at'] ?? null,
     boolToInt(row['archived']),
     boolToInt(row['pinned']),
-    row['chain_origin_id'] ?? null,
     boolToInt(row['git_backed']),
     row['git_pr_url'] ?? null,
     // project_name / space_name / space_path are NULL for base-table rows;
@@ -260,7 +257,6 @@ function actionNodeViewBinds(row: Record<string, unknown>, now: number): SqlBind
     row['completed_at'] ?? null,
     boolToInt(row['archived']),
     boolToInt(row['pinned']),
-    row['chain_origin_id'] ?? null,
     boolToInt(row['git_backed']),
     row['git_pr_url'] ?? null,
     row['project_name'] ?? null,

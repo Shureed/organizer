@@ -41,7 +41,7 @@ export const sqliteClosedTasks = `
   SELECT
     id, user_id, name, status, type, priority, parent_id, space_id,
     date, bucket, body, completed_at, archived, pinned,
-    chain_origin_id, git_backed, git_pr_url,
+    git_backed, git_pr_url,
     project_name, space_name, space_path,
     created_at, updated_at, _synced_at, _dirty, _deleted
   FROM action_node
@@ -58,7 +58,7 @@ export const sqliteClosedProjects = `
   SELECT
     id, user_id, name, status, type, priority, parent_id, space_id,
     date, bucket, body, completed_at, archived, pinned,
-    chain_origin_id, git_backed, git_pr_url,
+    git_backed, git_pr_url,
     project_name, space_name, space_path,
     created_at, updated_at, _synced_at, _dirty, _deleted
   FROM action_node
@@ -80,22 +80,13 @@ export const sqliteInbox = `
 `
 
 // ---------------------------------------------------------------------------
-// Chain status (mirrors v_chain_status view)
-// ---------------------------------------------------------------------------
-export const sqliteChainStatus = `
-  SELECT
-    origin_id, origin_name, origin_type, origin_status, chain_nodes
-  FROM v_chain_status
-`
-
-// ---------------------------------------------------------------------------
 // Pinned done tasks
 // ---------------------------------------------------------------------------
 export const sqlitePinnedDoneTasks = `
   SELECT
     id, user_id, name, status, type, priority, parent_id, space_id,
     date, bucket, body, completed_at, archived, pinned,
-    chain_origin_id, git_backed, git_pr_url,
+    git_backed, git_pr_url,
     project_name, space_name, space_path,
     created_at, updated_at, _synced_at, _dirty, _deleted
   FROM action_node
@@ -118,17 +109,3 @@ export const sqliteRecentItems = `
   LIMIT 25
 `
 
-// ---------------------------------------------------------------------------
-// Chain nodes (for a given origin ID)
-// Parameterised: caller substitutes ? with the chain_origin_id value.
-// For column-presence testing we use LIMIT 0 to avoid needing bind params;
-// the test checks the column list via pragma_table_info instead.
-// ---------------------------------------------------------------------------
-export const sqliteChainNodes = `
-  SELECT id, name, type, status, chain_origin_id
-  FROM action_node
-  WHERE chain_origin_id IS NOT NULL
-    AND archived = 0
-    AND _deleted = 0
-  ORDER BY created_at ASC
-`
