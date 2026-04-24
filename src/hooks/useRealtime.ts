@@ -29,9 +29,13 @@ const ROUTING: Record<string, SliceKey[]> = {
     'closedProjects',
     'pinnedDoneTasks',
     'recentItems',
+    'activeContainers',
   ],
   inbox: ['inbox'],
 }
+
+// Exported for routing-completeness tests only — not part of the public API.
+export const ROUTING_FOR_TEST = ROUTING
 
 // Per-slice debounce timers — coalesces rapid multi-row events into one fetch.
 const timers = new Map<SliceKey, number>()
