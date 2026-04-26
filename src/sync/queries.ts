@@ -82,6 +82,18 @@ export async function sqlitePinnedDoneTasks(): Promise<void> {
   useDataStore.getState().setData({ pinnedDoneTasks: rows as never[] })
 }
 
+export async function sqlitePinnedAll(): Promise<void> {
+  const rows = await query(
+    `SELECT *
+       FROM action_node
+      WHERE pinned = 1
+        AND archived = 0
+        AND _deleted = 0
+      ORDER BY created_at ASC`,
+  )
+  useDataStore.getState().setData({ pinnedAll: rows as never[] })
+}
+
 export async function sqliteRecentItems(): Promise<void> {
   const rows = await query(
     `SELECT id, name, status, updated_at, type, priority
