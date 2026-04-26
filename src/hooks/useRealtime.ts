@@ -28,6 +28,7 @@ const ROUTING: Record<string, SliceKey[]> = {
     'closedTasks',
     'closedProjects',
     'pinnedDoneTasks',
+    'pinnedAll',
     'recentItems',
     'activeContainers',
   ],

@@ -8,6 +8,7 @@ import {
   sqliteClosedProjects,
   sqliteInbox,
   sqlitePinnedDoneTasks,
+  sqlitePinnedAll,
   sqliteRecentItems,
   getComments,
 } from '../sync/queries'
@@ -145,6 +146,24 @@ export async function loadPinnedDoneTasks(force = false): Promise<void> {
   lastFetchedAt.set(key, Date.now())
 }
 
+export async function loadPinnedAll(force = false): Promise<void> {
+  if (await sqliteReady()) return sqlitePinnedAll()
+
+  const key = 'pinnedAll'
+  if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
+
+  const { data, error } = await supabase
+    .from('action_node')
+    .select('*')
+    .eq('pinned', true)
+    .eq('archived', false)
+    .order('created_at', { ascending: true })
+
+  if (error) throw error
+  getSetData()({ pinnedAll: data ?? [] })
+  lastFetchedAt.set(key, Date.now())
+}
+
 export async function loadActiveContainers(force = false): Promise<void> {
   const key = 'activeContainers'
   if (!force && Date.now() - (lastFetchedAt.get(key) ?? 0) < DEDUP_MS) return
@@ -210,6 +229,7 @@ export type SliceKey =
   | 'closedTasks'
   | 'closedProjects'
   | 'pinnedDoneTasks'
+  | 'pinnedAll'
   | 'recentItems'
   | 'inbox'
   | 'activeContainers'
@@ -228,6 +248,7 @@ export const sliceLoaders: Record<SliceKey, (force?: boolean) => Promise<void>> 
   closedTasks: (f) => loadClosedTasks(f).catch((e) => console.error('[sliceLoader:closedTasks] failed', e)),
   closedProjects: (f) => loadClosedProjects(f).catch((e) => console.error('[sliceLoader:closedProjects] failed', e)),
   pinnedDoneTasks: (f) => loadPinnedDoneTasks(f).catch((e) => console.error('[sliceLoader:pinnedDoneTasks] failed', e)),
+  pinnedAll: (f) => loadPinnedAll(f).catch((e) => console.error('[sliceLoader:pinnedAll] failed', e)),
   recentItems: (f) => loadRecentItems(f).catch((e) => console.error('[sliceLoader:recentItems] failed', e)),
   inbox: (f) => loadInbox(f).catch((e) => console.error('[sliceLoader:inbox] failed', e)),
   activeContainers: (f) => loadActiveContainers(f).catch((e) => console.error('[sliceLoader:activeContainers] failed', e)),
@@ -243,6 +264,7 @@ export function loadAll(): Promise<unknown[]> {
     loadClosedProjects(true),
     loadInbox(true),
     loadPinnedDoneTasks(true),
+    loadPinnedAll(true),
     loadRecentItems(true),
     loadActiveContainers(true),
   ])
@@ -255,7 +277,7 @@ export function loadAll(): Promise<unknown[]> {
 export const loadShellSeed = (): Promise<void> => loadTasks()
 
 export const loadTodayView = (): Promise<unknown> =>
-  Promise.all([loadTasks(), loadProjects(), loadPinnedDoneTasks(), loadActiveContainers()])
+  Promise.all([loadTasks(), loadProjects(), loadPinnedDoneTasks(), loadPinnedAll(), loadActiveContainers()])
 
 export const loadCalendarView = (): Promise<unknown> =>
   Promise.all([loadTasks(), loadClosedTasks()])
@@ -277,6 +299,7 @@ export function useDataLoader() {
       loadProjects(true),
       loadClosedTasks(true),
       loadPinnedDoneTasks(true),
+      loadPinnedAll(true),
       loadRecentItems(true),
     ])
 
@@ -290,6 +313,7 @@ export function useDataLoader() {
     loadClosedProjects(true),
     loadInbox(true),
     loadPinnedDoneTasks(true),
+    loadPinnedAll(true),
     loadRecentItems(true),
     loadActiveContainers(true),
   ])
@@ -304,6 +328,7 @@ export function useDataLoader() {
     loadClosedProjects,
     loadInbox,
     loadPinnedDoneTasks,
+    loadPinnedAll,
     loadRecentItems,
     loadActiveContainers,
   }

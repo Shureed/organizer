@@ -27,6 +27,7 @@ export interface AppData {
   closedProjects: ActionNode[]
   inbox: InboxItem[]
   pinnedDoneTasks: ActionNode[]
+  pinnedAll: ActionNode[]
   recentItems: Pick<ActionNode, 'id' | 'name' | 'status' | 'updated_at' | 'type' | 'priority'>[]
   activeContainers: ActionNode[]
 }
@@ -63,6 +64,7 @@ const initialData: AppData = {
   closedProjects: [],
   inbox: [],
   pinnedDoneTasks: [],
+  pinnedAll: [],
   recentItems: [],
   activeContainers: EMPTY_ACTIVE_CONTAINERS,
 }

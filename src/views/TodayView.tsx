@@ -180,11 +180,24 @@ export function TodayView() {
       t.status !== 'cancelled'
   )
 
-  // Pinned tasks (shown regardless of date) — includes done pinned tasks that linger until unpinned
-  const pinnedTasks: ActiveTask[] = [
-    ...data.tasks.filter((t: ActiveTask) => t.pinned),
-    ...(data.pinnedDoneTasks as unknown as ActiveTask[]),
-  ]
+  // Pinned tasks (shown regardless of date) — includes non-task pinned nodes and done pinned tasks.
+  // Dedupe by id: tasks.filter(pinned) → pinnedAll (catches non-task types) → pinnedDoneTasks.
+  // First-occurrence wins so active tasks take precedence over duplicates from broader queries.
+  const pinnedTasks: ActiveTask[] = (() => {
+    const seen = new Set<string>()
+    const merged: ActiveTask[] = []
+    for (const item of [
+      ...data.tasks.filter((t: ActiveTask) => t.pinned),
+      ...(data.pinnedAll as unknown as ActiveTask[]),
+      ...(data.pinnedDoneTasks as unknown as ActiveTask[]),
+    ]) {
+      if (item.id && !seen.has(item.id)) {
+        seen.add(item.id)
+        merged.push(item)
+      }
+    }
+    return merged
+  })()
 
   // Filtered today tasks (exclude pinned)
   const todayTasks = data.tasks.filter((t: ActiveTask) => {

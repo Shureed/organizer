@@ -23,6 +23,7 @@ const resetDataStore = () =>
       closedProjects: [],
       inbox: [],
       pinnedDoneTasks: [],
+      pinnedAll: [],
       recentItems: [],
       activeContainers: [],
     },
