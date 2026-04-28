@@ -61,8 +61,8 @@ if (import.meta.env.VITE_SYNC_DEBUG === 'true') {
     .then(() => {
       console.info(`[sync] cold-boot ${Math.round(performance.now() - _t0)} ms`)
     })
-    .catch(() => {
-      console.info('[sync] cold-boot failed — OPFS unavailable, falling back')
+    .catch((err: unknown) => {
+      console.error('[sync] cold-boot failed:', err)
     })
 }
 

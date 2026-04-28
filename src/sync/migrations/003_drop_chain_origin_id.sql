@@ -17,6 +17,14 @@ DROP VIEW IF EXISTS v_chain_status;
 -- Drop the index on the removed column.
 DROP INDEX IF EXISTS idx_an_chain;
 
+-- Drop the views that reference action_node BEFORE the RENAME.
+-- SQLite's ALTER TABLE ... RENAME TO rewrites the rename'd name into
+-- dependent view definitions, so without this step v_active_tasks /
+-- v_active_projects would point at action_node_old and break when the
+-- old table is dropped at step 4.
+DROP VIEW IF EXISTS v_active_tasks;
+DROP VIEW IF EXISTS v_active_projects;
+
 -- Recreate action_node without chain_origin_id.
 -- Step 1: rename the old table.
 ALTER TABLE action_node RENAME TO action_node_old;
@@ -68,3 +76,34 @@ CREATE INDEX IF NOT EXISTS idx_an_parent     ON action_node(parent_id);
 CREATE INDEX IF NOT EXISTS idx_an_status     ON action_node(status, archived);
 CREATE INDEX IF NOT EXISTS idx_an_type       ON action_node(type, archived);
 CREATE INDEX IF NOT EXISTS idx_an_dirty      ON action_node(_dirty) WHERE _dirty = 1;
+
+-- Step 6: recreate the views we dropped above. Definitions match 001.
+CREATE VIEW v_active_tasks AS
+  SELECT
+    id, user_id, name, status, type, priority, parent_id, space_id,
+    date, bucket, body, completed_at, archived, created_at, updated_at,
+    project_name, space_name, space_path, pinned, git_pr_url, git_backed
+  FROM action_node
+  WHERE archived = 0
+    AND status NOT IN ('done', 'cancelled')
+    AND type != 'project'
+    AND _deleted = 0;
+
+CREATE VIEW v_active_projects AS
+  SELECT
+    p.id, p.user_id, p.name, p.status, p.space_id, p.body,
+    p.archived, p.created_at, p.updated_at,
+    p.space_name, p.space_path,
+    (SELECT COUNT(*)
+       FROM action_node t
+      WHERE t.parent_id = p.id
+        AND t.archived = 0
+        AND t.status NOT IN ('done', 'cancelled')
+        AND t.type != 'project'
+        AND t._deleted = 0
+    ) AS open_task_count
+  FROM action_node p
+  WHERE p.archived = 0
+    AND p.status NOT IN ('done', 'cancelled')
+    AND p.type = 'project'
+    AND p._deleted = 0;
