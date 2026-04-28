@@ -87,10 +87,14 @@ async function _init(): Promise<void> {
     throw new InitError('OPFS is not available in this environment (navigator.storage.getDirectory missing)')
   }
 
+  // Surface wasm stdout/stderr only when VITE_SYNC_DEBUG is on. Default is
+  // silent — wasm init output is noisy and not actionable in normal runs, but
+  // when init fails (OPFS / SAHPool / wasm fetch) the error string only shows
+  // up via printErr, so we need a togglable path for diagnostics.
+  const _debug = import.meta.env.VITE_SYNC_DEBUG === 'true'
   const sqlite3 = await sqlite3InitModule({
-    // Suppress the default stdout/stderr output from the wasm module.
-    print: () => { /* noop */ },
-    printErr: () => { /* noop */ },
+    print: _debug ? (msg: string) => { console.info('[sync:wasm]', msg) } : () => {},
+    printErr: _debug ? (msg: string) => { console.error('[sync:wasm]', msg) } : () => {},
   })
 
   // Install the SAHPool VFS. This does NOT require crossOriginIsolated.
