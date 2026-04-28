@@ -36,11 +36,15 @@ export interface DbApi {
 
 type Sqlite3Module = Awaited<ReturnType<typeof sqlite3InitModule>>
 type OO1DB = InstanceType<Sqlite3Module['oo1']['DB']>
+type SAHPoolUtil = Awaited<ReturnType<Sqlite3Module['installOpfsSAHPoolVfs']>>
 
 let _db: OO1DB | null = null
+let _poolUtil: SAHPoolUtil | null = null
 
 // Single promise that serialises the init path.
 let _initPromise: Promise<void> | null = null
+
+const _DB_PATH = '/organizer.db'
 
 // ---------------------------------------------------------------------------
 // Migration loader
@@ -94,9 +98,10 @@ async function _init(): Promise<void> {
   // file handles are pre-allocated (default 6 is sufficient for one DB +
   // temp files; keep default here).
   const poolUtil = await sqlite3.installOpfsSAHPoolVfs({ name: 'organizer-pool' })
+  _poolUtil = poolUtil
 
   // Open (or create) the database.
-  _db = new poolUtil.OpfsSAHPoolDb('/organizer.db')
+  _db = new poolUtil.OpfsSAHPoolDb(_DB_PATH)
 
   // Apply PRAGMAs immediately after open.
   _db.exec(`
@@ -179,13 +184,18 @@ const api: DbApi = {
   },
 
   /**
-   * Close the database and release all OPFS file handles.
-   * After calling this the worker should be terminated.
+   * Close the database AND wipe the OPFS-backed file. SAHPool persists files
+   * across `_db.close()` — closing alone leaves /organizer.db on disk, so the
+   * next caller's `_init()` re-opens the previous user's data. Unlinking after
+   * close is what makes `destroySQLite()` actually destroy.
    */
   async close(): Promise<void> {
     if (_db) {
       _db.close()
       _db = null
+    }
+    if (_poolUtil) {
+      await _poolUtil.unlink(_DB_PATH)
     }
     _initPromise = null
   },
