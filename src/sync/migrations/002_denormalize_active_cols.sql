@@ -1,21 +1,22 @@
 -- ============================================================================
--- Migration 002 — Denormalize active join columns onto action_node (PR-C fix)
+-- Migration 002 — Denormalize active join columns onto action_node (no-op)
 -- ============================================================================
--- The original PR-C (attempt #33, reverted via #35) had a bug: the local
--- v_active_tasks view referenced project_name / space_name / space_path
--- but action_node (migration 001) did not include those columns.
--- They exist only on the *server* view (joined from spaces + v_space_tree).
+-- This migration originally added project_name / space_name / space_path to
+-- action_node via ALTER TABLE ADD COLUMN. Migration 001 was later updated to
+-- include those columns inline in the CREATE TABLE statement, which made
+-- this migration's ADD COLUMNs collide on every fresh OPFS bootstrap with
+--   SQLite3Error: SQLITE_ERROR: duplicate column name: project_name
+-- causing _runMigrations to throw, isSqliteAvailable() to return false, and
+-- every read to fall through to REST.
 --
--- Fix: add the three columns to the local action_node table.  The pull engine
--- populates them when fetching from the server views v_active_tasks /
--- v_active_projects.  Rows pulled from the base action_node table leave them
--- NULL — that is fine because only rows satisfying the v_active_tasks WHERE
--- clause need them, and those rows will have been populated by a view-pull.
+-- The fix is to make this migration a no-op. The columns now live in 001;
+-- DBs that bootstrapped on the older 001 (without the columns) and recorded
+-- this migration's earlier successful run already have the columns. DBs on
+-- the newer 001 don't need this migration to do anything.
 --
--- COALESCE semantics in the base-table upsert (pull.ts) ensure a base-table
--- pull never clobbers join cols already set by a prior view-pull.
+-- Kept as a tracked migration (not deleted) so already-applied DBs stay in
+-- sync with the runner's _migrations ledger.
 -- ============================================================================
 
-ALTER TABLE action_node ADD COLUMN project_name TEXT;
-ALTER TABLE action_node ADD COLUMN space_name   TEXT;
-ALTER TABLE action_node ADD COLUMN space_path   TEXT;
+-- intentionally empty
+SELECT 1;
