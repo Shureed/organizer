@@ -36,8 +36,12 @@ test('warm OPFS read serves Today view without /rest/v1/ GETs', async ({ page, c
 
   // Filter: realtime subscribe, storage, or auth are OK — only flag REST view
   // reads that the SQLite flip-over should have eliminated.
+  // Note: bare `action_node` GETs are NOT view reads — they're either the
+  // pull engine's incremental sync (legitimate after warm reload) or the
+  // active-containers slice loader (no SQLite path). The flip-over promise
+  // is about the displayed view sources, not about all sync traffic.
   const viewReads = restCalls.filter((u) =>
-    /\/rest\/v1\/(v_active_tasks|v_active_projects|v_new_inbox|v_chain_status|action_node)/.test(u),
+    /\/rest\/v1\/(v_active_tasks|v_active_projects|v_new_inbox|v_chain_status)/.test(u),
   )
   expect(
     viewReads,
