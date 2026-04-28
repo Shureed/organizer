@@ -21,7 +21,13 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-const BUCKET_TASK_ID = '646e0015-0000-0000-0000-000000000000'
+// Target the today fixture task (`e45d0a2b-...`). The earlier choice of the
+// bucket task was wrong: its date is NULL and TodayView filters `t.date === today`,
+// so no body change there ever surfaces on `/`. The today task is visible on
+// `/`, so realtime body updates can be asserted by `getByText(newName)`. We
+// restore the body in a finally so other specs see the canonical fixture.
+const TARGET_TASK_ID = 'e45d0a2b-08f8-494a-8f25-3174f47d754e'
+const TARGET_RESTORE_NAME = 'E2E fixture — today task'
 
 function loadSupabaseCreds(): { url: string; anonKey: string } {
   let url = process.env.VITE_SUPABASE_URL
@@ -68,22 +74,27 @@ test('realtime UPDATE lands in UI without a /rest/v1/ view GET', async ({ page, 
   if (authErr) throw new Error(`side-channel auth failed: ${authErr.message}`)
 
   const newName = `E2E realtime ping ${Date.now()}`
-  const { error: updErr } = await sb
-    .from('action_node')
-    .update({ body: newName })
-    .eq('id', BUCKET_TASK_ID)
-  if (updErr) throw new Error(`side-channel update failed: ${updErr.message}`)
+  try {
+    const { error: updErr } = await sb
+      .from('action_node')
+      .update({ body: newName })
+      .eq('id', TARGET_TASK_ID)
+    if (updErr) throw new Error(`side-channel update failed: ${updErr.message}`)
 
-  // Expect the new name to appear in the UI (via realtime direct apply) in
-  // under ~5s. Plan §2 target is <1s; we widen to 5s to absorb realtime
-  // connection cold-start on CI.
-  await expect(page.getByText(newName).first()).toBeVisible({ timeout: 5_000 })
+    // Expect the new name to appear in the UI (via realtime direct apply) in
+    // under ~5s. Plan §2 target is <1s; we widen to 5s to absorb realtime
+    // connection cold-start on CI.
+    await expect(page.getByText(newName).first()).toBeVisible({ timeout: 5_000 })
 
-  expect(
-    viewReads,
-    `realtime apply should not trigger REST view GETs; got:\n${viewReads.join('\n')}`,
-  ).toHaveLength(0)
-
-  // Restore bucket task name for idempotency.
-  await sb.from('action_node').update({ body: 'E2E fixture — bucket task' }).eq('id', BUCKET_TASK_ID)
+    expect(
+      viewReads,
+      `realtime apply should not trigger REST view GETs; got:\n${viewReads.join('\n')}`,
+    ).toHaveLength(0)
+  } finally {
+    // Restore the today fixture's canonical body so subsequent specs (and
+    // future runs) see the seeded value. Runs even if the assertions above
+    // throw — leaving the today task with a transient ping name would break
+    // every other spec that anchors on `getByText('E2E fixture — today task')`.
+    await sb.from('action_node').update({ body: TARGET_RESTORE_NAME }).eq('id', TARGET_TASK_ID)
+  }
 })
