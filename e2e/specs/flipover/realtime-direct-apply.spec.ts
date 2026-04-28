@@ -81,10 +81,11 @@ test('realtime UPDATE lands in UI without a /rest/v1/ view GET', async ({ page, 
       .eq('id', TARGET_TASK_ID)
     if (updErr) throw new Error(`side-channel update failed: ${updErr.message}`)
 
-    // Expect the new name to appear in the UI (via realtime direct apply) in
-    // under ~5s. Plan §2 target is <1s; we widen to 5s to absorb realtime
-    // connection cold-start on CI.
-    await expect(page.getByText(newName).first()).toBeVisible({ timeout: 5_000 })
+    // Expect the new name to appear in the UI (via realtime direct apply).
+    // Plan §2 target is <1s; we widen to 15s to absorb realtime connection
+    // cold-start on CF preview (WebSocket handshake + JWT exchange + first
+    // postgres_changes round-trip can stack on a fresh chromium context).
+    await expect(page.getByText(newName).first()).toBeVisible({ timeout: 15_000 })
 
     expect(
       viewReads,

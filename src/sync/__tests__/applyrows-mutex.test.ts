@@ -21,7 +21,7 @@ import { describe, it, beforeEach, expect, vi } from 'vitest'
 
 // Mock the Comlink-bridged mutate to a tracker that records call order.
 const mutateCalls: string[] = []
-const mutateMock = vi.fn(async (sql: string, _params?: unknown) => {
+const mutateMock = vi.fn(async (sql: string) => {
   mutateCalls.push(sql.trim().split(/\s+/)[0]!.toUpperCase())
   // Yield to the event loop so concurrent callers race realistically.
   await new Promise((r) => setTimeout(r, 0))
