@@ -142,10 +142,12 @@ jobs:
           echo "PR #$pr changed files:"
           printf '%s\n' "$paths"
 
-          # The flipover gate runs when EITHER the sync layer changes OR the
-          # flipover specs themselves change. Skipping a flipover-spec-only
-          # PR like a spec rewrite means the rewrite ships unverified.
-          if printf '%s\n' "$paths" | grep -qE '^(src/sync/|e2e/specs/flipover/)'; then
+          # The flipover gate runs when ANY of these change:
+          #   - the sync layer (src/sync/**)
+          #   - the flipover specs (e2e/specs/flipover/**)
+          #   - vite.config.ts (PWA / SW config affects offline-reload spec)
+          # Skipping a PR that touches one of these means it ships unverified.
+          if printf '%s\n' "$paths" | grep -qE '^(src/sync/|e2e/specs/flipover/|vite\.config\.ts$)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
             echo "reason=sync-or-flipover-paths-touched" >> "$GITHUB_OUTPUT"
           else

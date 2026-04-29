@@ -23,18 +23,19 @@ export default defineConfig({
       workbox: {
         globPatterns: [
           'index.html',
-          'assets/rolldown-runtime-*.js',
-          'assets/preload-helper-*.js',
-          'assets/react-vendor-*.js',
-          'assets/supabase-vendor-*.js',
-          'assets/index-*.js',
-          'assets/index-*.css',
+          'assets/*.js',
+          'assets/*.css',
           'favicon.svg',
           'icon-192.png',
           'icon-512.png',
           'manifest.json',
         ],
         globIgnores: ['stats.html', 'assets/*.woff', 'assets/*.woff2', 'assets/utils-*.js', 'assets/*.wasm'],
+        // Workbox precache size cap. The default 2MB rejects per-chunk; bump
+        // to a generous 10MB so the full lazy-chunk graph (~2-3MB total)
+        // lands in precache. Exceeding this on a single file is a real
+        // signal — it'd mean a vendor chunk grew unexpectedly.
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
         navigateFallback: '/organizer/index.html',
         navigateFallbackDenylist: [/^\/organizer\/api\//],   // reserved; no such route today
         skipWaiting: false,
@@ -51,7 +52,12 @@ export default defineConfig({
           // unauthenticated first-boot does not hit /rest/v1/* and the SQLite
           // flag gates all authenticated reads through the local DB.
           {
-            urlPattern: /\/organizer\/assets\/.*\.(woff2?|ttf)$/,
+            // Match assets/ regardless of base-path prefix. GH Pages production
+            // serves at /organizer/assets/...; CF Pages preview at /assets/...
+            // The hardcoded /organizer/ prefix was an `airplane-read` blocker:
+            // on CF preview, lazy chunks weren't runtime-cached because the
+            // pattern never matched, so offline reload couldn't serve them.
+            urlPattern: /\/assets\/.*\.(woff2?|ttf)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'fonts',
@@ -62,7 +68,7 @@ export default defineConfig({
           {
             // T4: include .wasm alongside .js so sqlite3.wasm gets runtime-cached.
             // maxEntries bumped 40 → 60 to accommodate the worker + wasm chunks.
-            urlPattern: /\/organizer\/assets\/.*\.(js|wasm)$/,
+            urlPattern: /\/assets\/.*\.(js|wasm)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'view-chunks',
