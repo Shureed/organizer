@@ -54,10 +54,13 @@ test('realtime UPDATE lands in UI without a /rest/v1/ view GET', async ({ page, 
 
   // Start watching for display-path REST view fetches *after* warm load.
   // The realtime apply path should write to local SQLite without triggering
-  // a REST refetch of the displayed view. Exclude pull-engine sync traffic
-  // (signature: `order=updated_at.asc` and `&limit=` keyset paging) — that
-  // legitimately fires after any UPDATE that advances the cursor and is
-  // orthogonal to the realtime apply path. Same filter shape as warm-opfs.
+  // a REST refetch of the displayed VIEW DATASET. Exclude:
+  //   - pull-engine sync (signature: `order=updated_at.asc` and `&limit=` keyset)
+  //   - pullActiveJoinsFor (signature: `id=in.(...)` filter) — by design per
+  //     apply.ts T9.5, this refreshes project_name/space_name/space_path for
+  //     a single row after realtime apply, since postgres_changes payloads
+  //     don't carry view-only join cols. It's a targeted join-col refresh,
+  //     NOT a display-dataset refetch
   const viewReads: string[] = []
   await context.route('**/rest/v1/**', async (route) => {
     const req = route.request()
@@ -66,7 +69,8 @@ test('realtime UPDATE lands in UI without a /rest/v1/ view GET', async ({ page, 
       req.method() === 'GET' &&
       /\/rest\/v1\/(v_active_tasks|v_active_projects|v_new_inbox|v_chain_status)/.test(url) &&
       !/order=updated_at\.asc/.test(url) &&
-      !/&limit=\d/.test(url)
+      !/&limit=\d/.test(url) &&
+      !/&id=in\./.test(url)
     ) {
       viewReads.push(url)
     }

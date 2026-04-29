@@ -37,6 +37,8 @@ test('warm OPFS read serves Today view without /rest/v1/ GETs', async ({ page, c
   // Filter: only flag display-path view reads. Exclude:
   //   - bare action_node GETs (pull engine's base-table sync OR loadActiveContainers)
   //   - pull engine's view sync (signature: `order=updated_at.asc` and/or `&limit=` keyset paging)
+  //   - pullActiveJoinsFor refreshes (signature: `&id=in.(...)`) — targeted join-col
+  //     refresh per row after realtime apply, by design per apply.ts T9.5
   // The flip-over promise is "displayed view data comes from SQLite, not REST."
   // Pull-engine sync traffic (which keeps SQLite current) is *correct* behaviour
   // even on warm reload. Display-path fetches use `order=date.asc.nullslast` /
@@ -44,7 +46,8 @@ test('warm OPFS read serves Today view without /rest/v1/ GETs', async ({ page, c
   const viewReads = restCalls.filter((u) =>
     /\/rest\/v1\/(v_active_tasks|v_active_projects|v_new_inbox|v_chain_status)/.test(u)
     && !/order=updated_at\.asc/.test(u)
-    && !/&limit=\d/.test(u),
+    && !/&limit=\d/.test(u)
+    && !/&id=in\./.test(u),
   )
   expect(
     viewReads,
