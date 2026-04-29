@@ -26,14 +26,16 @@ export async function openDetailModal(page: Page, fixtureText: string): Promise<
  * Set the status select inside the open detail modal to one of the
  * item_status enum values: open / in_progress / waiting / done / cancelled.
  *
- * The label-for wiring on TaskDetailFormGrid isn't strict, so we anchor by
- * role + accessible name with a regex fallback.
+ * Anchored by aria-label via getByLabel — `getByRole('combobox', { name })`
+ * doesn't match native <select> elements with aria-label reliably across
+ * Playwright versions, but getByLabel resolves the aria-label as the
+ * accessible name directly.
  */
 export async function setStatus(
   page: Page,
   value: 'open' | 'in_progress' | 'waiting' | 'done' | 'cancelled',
 ): Promise<void> {
-  const select = page.getByRole('combobox', { name: /status/i }).first()
+  const select = page.getByLabel('Status').first()
   await expect(select).toBeVisible({ timeout: 5_000 })
   await select.selectOption(value)
 }
