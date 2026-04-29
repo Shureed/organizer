@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { openDetailModal, setStatus, clickUpdate, restoreTaskStatus } from './_helpers'
 
 /**
  * Flip-over scenario 5: OFFLINE MUTATION
@@ -7,45 +8,36 @@ import { test, expect } from '@playwright/test'
  * disappears from Today immediately (optimistic). Outbox has 1 pending
  * entry."
  *
- * We toggle the context offline, click the complete affordance on the
- * seeded today fixture task, and assert it leaves Today view optimistically.
- * Outbox pending-count verification is left to the next spec (outbox-replay)
- * which runs the drain end-to-end; separating them keeps this spec's signal
- * narrowly scoped to the optimistic UI behaviour.
+ * Drives the real completion flow: tap card → detail modal → set status to
+ * `done` → click Update. The earlier version of this spec assumed a
+ * row-level checkbox / done-button affordance on TaskCard that doesn't
+ * exist. See `e2e/specs/flipover/_helpers.ts` for the shared modal helpers.
  *
- * Assumption flag (see PR body): the complete affordance is a checkbox /
- * button adjacent to the task row. We target by role=checkbox near the
- * fixture task text. If the UI changes, this needs rewiring.
- *
- * NOTE: this spec mutates shared-user state (task e45d0a2b). Spec 6
- * (outbox-replay) re-opens the same task to restore state after drain.
+ * NOTE: this spec mutates the today fixture (e45d0a2b). The `finally`
+ * restore re-opens it via the modal flow so subsequent specs (run
+ * alphabetically: online-cold-boot, outbox-replay, ...) start from the
+ * canonical seeded state.
  */
 test('offline task complete removes task from Today optimistically', async ({ page, context }) => {
   await page.goto('/')
-  const fixtureTask = page.getByText('E2E fixture — today task').first()
-  await expect(fixtureTask).toBeVisible({ timeout: 45_000 })
+  const fixtureText = 'E2E fixture — today task'
+  await expect(page.getByText(fixtureText).first()).toBeVisible({ timeout: 45_000 })
 
   await context.setOffline(true)
   try {
-    // Scope to the task row and click its complete control. The TaskCard
-    // exposes a checkbox-like toggle. We use the row's closest interactive
-    // ancestor as a click target.
-    const row = fixtureTask.locator('xpath=ancestor::*[self::li or self::div][1]')
-    const toggle = row.getByRole('checkbox').first()
-    if (await toggle.count()) {
-      await toggle.click()
-    } else {
-      // Fallback: click the row and look for a "Done" / complete button.
-      await row.click()
-      const doneBtn = page.getByRole('button', { name: /done|complete/i }).first()
-      await doneBtn.click()
-    }
+    await openDetailModal(page, fixtureText)
+    await setStatus(page, 'done')
+    await clickUpdate(page)
 
-    // Optimistic: the fixture text should leave Today within 5 s.
-    await expect(page.getByText('E2E fixture — today task').first()).toHaveCount(0, {
-      timeout: 5_000,
-    })
+    // useMutations writes optimistically to the Zustand store while
+    // offline (status=done + completed_at=now), so v_active_tasks-derived
+    // slices should drop the row immediately. 5s tolerance for the
+    // post-mutation re-render to land.
+    await expect(page.getByText(fixtureText).first()).toHaveCount(0, { timeout: 5_000 })
   } finally {
+    // Always come back online before attempting restore — the modal flow
+    // needs network to persist status=open and unblock subsequent specs.
     await context.setOffline(false)
+    await restoreTaskStatus(page, fixtureText, 'open')
   }
 })
