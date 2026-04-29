@@ -318,6 +318,16 @@ function boolToInt(v: unknown): number {
  * mode='base' (default): join cols bound as NULL + COALESCE to preserve existing values.
  * mode='view': join cols bound from server view payload, overwritten unconditionally.
  */
+// Single-flight chain that serialises applyRows's BEGIN/COMMIT pair.
+// Multiple callers (App.tsx bootstrap, useRealtime onRejoin / visibility-regain,
+// realtime postgres_changes apply) can enter applyRows concurrently. Each call
+// round-trips `mutate('BEGIN')` through Comlink, so without serialisation the
+// worker sees a second BEGIN inside the first's open transaction and throws
+// "cannot start a transaction within a transaction". Chaining each invocation
+// onto the previous one's settlement (success or failure) keeps reads through
+// `query()` unblocked while bounding the write window to one in flight.
+let _applyRowsChain: Promise<void> = Promise.resolve()
+
 async function applyRows(
   table: SyncTable,
   rows: Record<string, unknown>[],
@@ -325,27 +335,36 @@ async function applyRows(
 ): Promise<void> {
   if (rows.length === 0) return
 
-  const sql = buildUpsertSql(table, mode)
-  const now = Date.now()
+  const run = async (): Promise<void> => {
+    const sql = buildUpsertSql(table, mode)
+    const now = Date.now()
 
-  let bindsFn: (row: Record<string, unknown>, now: number) => SqlBindings
-  if (table === 'action_node') {
-    bindsFn = mode === 'view' ? actionNodeViewBinds : actionNodeBinds
-  } else {
-    bindsFn = inboxBinds
-  }
-
-  // Execute all upserts in a single transaction for atomicity.
-  await mutate('BEGIN')
-  try {
-    for (const row of rows) {
-      await mutate(sql, bindsFn(row, now))
+    let bindsFn: (row: Record<string, unknown>, now: number) => SqlBindings
+    if (table === 'action_node') {
+      bindsFn = mode === 'view' ? actionNodeViewBinds : actionNodeBinds
+    } else {
+      bindsFn = inboxBinds
     }
-    await mutate('COMMIT')
-  } catch (err) {
-    await mutate('ROLLBACK')
-    throw err
+
+    // Execute all upserts in a single transaction for atomicity.
+    await mutate('BEGIN')
+    try {
+      for (const row of rows) {
+        await mutate(sql, bindsFn(row, now))
+      }
+      await mutate('COMMIT')
+    } catch (err) {
+      await mutate('ROLLBACK')
+      throw err
+    }
   }
+
+  const next = _applyRowsChain.then(run, run)
+  _applyRowsChain = next.then(
+    () => {},
+    () => {},
+  )
+  return next
 }
 
 // ── upsertFromServer (exported for apply.ts in PR-C T11) ────────────────────
