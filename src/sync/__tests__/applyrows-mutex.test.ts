@@ -28,7 +28,7 @@ const mutateMock = vi.fn(async (sql: string) => {
 })
 
 vi.mock('../client', () => ({
-  mutate: (sql: string, params?: unknown) => mutateMock(sql, params),
+  mutate: (sql: string) => mutateMock(sql),
   query: vi.fn(async () => []),
   checkQuotaAndEvict: vi.fn(async () => {}),
   registerQuotaCheck: vi.fn(),
