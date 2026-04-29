@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test'
-import { openDetailModal, setStatus, clickUpdate, restoreTaskStatus } from './_helpers'
+import { openDetailModal, setStatus, clickUpdate, restoreTaskStatusViaApi } from './_helpers'
+
+const TODAY_TASK_ID = 'e45d0a2b-08f8-494a-8f25-3174f47d754e'
 
 /**
  * Flip-over scenario 6: OUTBOX REPLAY
@@ -48,8 +50,9 @@ test('outbox drains after reconnect and mutation lands on server', async ({ page
     await expect(page.getByText(fixtureText).first()).toHaveCount(0, { timeout: 30_000 })
   } finally {
     // Network may still be offline if a try-block step threw before
-    // setOffline(false) ran. Restore needs network.
+    // setOffline(false) ran. Side-channel restore needs network.
     await context.setOffline(false)
-    await restoreTaskStatus(page, fixtureText, 'open')
+    // Restore via direct REST update (same pattern as offline-mutation).
+    await restoreTaskStatusViaApi(TODAY_TASK_ID, 'open')
   }
 })

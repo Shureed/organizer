@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test'
-import { openDetailModal, setStatus, clickUpdate, restoreTaskStatus } from './_helpers'
+import { openDetailModal, setStatus, clickUpdate, restoreTaskStatusViaApi } from './_helpers'
+
+const TODAY_TASK_ID = 'e45d0a2b-08f8-494a-8f25-3174f47d754e'
 
 /**
  * Flip-over scenario 5: OFFLINE MUTATION
@@ -44,9 +46,12 @@ test('offline task complete removes task from Today optimistically', async ({ pa
     // post-mutation re-render to land.
     await expect(page.getByText(fixtureText).first()).toHaveCount(0, { timeout: 5_000 })
   } finally {
-    // Always come back online before attempting restore — the modal flow
-    // needs network to persist status=open and unblock subsequent specs.
+    // Always come back online — the side-channel restore needs network.
     await context.setOffline(false)
-    await restoreTaskStatus(page, fixtureText, 'open')
+    // Restore via direct REST update (bypasses fragile modal navigation
+    // that fought offline→online transitions in the previous iteration).
+    // Within-run isolation: the next spec (online-cold-boot, etc.) needs
+    // the today fixture in `open` regardless of what this spec did.
+    await restoreTaskStatusViaApi(TODAY_TASK_ID, 'open')
   }
 })
