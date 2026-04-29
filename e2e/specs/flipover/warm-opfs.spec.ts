@@ -34,14 +34,20 @@ test('warm OPFS read serves Today view without /rest/v1/ GETs', async ({ page, c
     timeout: 30_000,
   })
 
-  // Filter: realtime subscribe, storage, or auth are OK — only flag REST view
-  // reads that the SQLite flip-over should have eliminated.
-  // Note: bare `action_node` GETs are NOT view reads — they're either the
-  // pull engine's incremental sync (legitimate after warm reload) or the
-  // active-containers slice loader (no SQLite path). The flip-over promise
-  // is about the displayed view sources, not about all sync traffic.
+  // Filter: only flag display-path view reads. Exclude:
+  //   - bare action_node GETs (pull engine's base-table sync OR loadActiveContainers)
+  //   - pull engine's view sync (signature: `order=updated_at.asc` and/or `&limit=` keyset paging)
+  //   - pullActiveJoinsFor refreshes (signature: `&id=in.(...)`) — targeted join-col
+  //     refresh per row after realtime apply, by design per apply.ts T9.5
+  // The flip-over promise is "displayed view data comes from SQLite, not REST."
+  // Pull-engine sync traffic (which keeps SQLite current) is *correct* behaviour
+  // even on warm reload. Display-path fetches use `order=date.asc.nullslast` /
+  // `order=name.asc` / `order=created_at.desc` — distinct from sync.
   const viewReads = restCalls.filter((u) =>
-    /\/rest\/v1\/(v_active_tasks|v_active_projects|v_new_inbox|v_chain_status)/.test(u),
+    /\/rest\/v1\/(v_active_tasks|v_active_projects|v_new_inbox|v_chain_status)/.test(u)
+    && !/order=updated_at\.asc/.test(u)
+    && !/&limit=\d/.test(u)
+    && !/&id=in\./.test(u),
   )
   expect(
     viewReads,

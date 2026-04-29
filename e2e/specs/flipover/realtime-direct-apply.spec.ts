@@ -21,11 +21,12 @@ import { createClient } from '@supabase/supabase-js'
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
-// Target the today fixture task (`e45d0a2b-...`). The earlier choice of the
-// bucket task was wrong: its date is NULL and TodayView filters `t.date === today`,
-// so no body change there ever surfaces on `/`. The today task is visible on
-// `/`, so realtime body updates can be asserted by `getByText(newName)`. We
-// restore the body in a finally so other specs see the canonical fixture.
+// Target the today fixture task (`e45d0a2b-...`). Bucket task (date=null) was
+// the original target but isn't on Today; today task is rendered as an overdue
+// item on `/`. We update `name` (not `body`) because TaskCard renders only
+// `task.name` — a body change can't surface on Today regardless of how the
+// realtime apply path performs. Restore name to canonical in finally so other
+// specs see the seeded fixture.
 const TARGET_TASK_ID = 'e45d0a2b-08f8-494a-8f25-3174f47d754e'
 const TARGET_RESTORE_NAME = 'E2E fixture — today task'
 
@@ -51,15 +52,27 @@ test('realtime UPDATE lands in UI without a /rest/v1/ view GET', async ({ page, 
     timeout: 45_000,
   })
 
-  // Start watching for REST view fetches from the UI *after* warm load.
+  // Start watching for display-path REST view fetches *after* warm load.
+  // The realtime apply path should write to local SQLite without triggering
+  // a REST refetch of the displayed VIEW DATASET. Exclude:
+  //   - pull-engine sync (signature: `order=updated_at.asc` and `&limit=` keyset)
+  //   - pullActiveJoinsFor (signature: `id=in.(...)` filter) — by design per
+  //     apply.ts T9.5, this refreshes project_name/space_name/space_path for
+  //     a single row after realtime apply, since postgres_changes payloads
+  //     don't carry view-only join cols. It's a targeted join-col refresh,
+  //     NOT a display-dataset refetch
   const viewReads: string[] = []
   await context.route('**/rest/v1/**', async (route) => {
     const req = route.request()
+    const url = req.url()
     if (
       req.method() === 'GET' &&
-      /\/rest\/v1\/(v_active_tasks|action_node)/.test(req.url())
+      /\/rest\/v1\/(v_active_tasks|v_active_projects|v_new_inbox|v_chain_status)/.test(url) &&
+      !/order=updated_at\.asc/.test(url) &&
+      !/&limit=\d/.test(url) &&
+      !/&id=in\./.test(url)
     ) {
-      viewReads.push(req.url())
+      viewReads.push(url)
     }
     await route.continue()
   })
@@ -77,7 +90,7 @@ test('realtime UPDATE lands in UI without a /rest/v1/ view GET', async ({ page, 
   try {
     const { error: updErr } = await sb
       .from('action_node')
-      .update({ body: newName })
+      .update({ name: newName })
       .eq('id', TARGET_TASK_ID)
     if (updErr) throw new Error(`side-channel update failed: ${updErr.message}`)
 
@@ -92,10 +105,10 @@ test('realtime UPDATE lands in UI without a /rest/v1/ view GET', async ({ page, 
       `realtime apply should not trigger REST view GETs; got:\n${viewReads.join('\n')}`,
     ).toHaveLength(0)
   } finally {
-    // Restore the today fixture's canonical body so subsequent specs (and
+    // Restore the today fixture's canonical name so subsequent specs (and
     // future runs) see the seeded value. Runs even if the assertions above
     // throw — leaving the today task with a transient ping name would break
     // every other spec that anchors on `getByText('E2E fixture — today task')`.
-    await sb.from('action_node').update({ body: TARGET_RESTORE_NAME }).eq('id', TARGET_TASK_ID)
+    await sb.from('action_node').update({ name: TARGET_RESTORE_NAME }).eq('id', TARGET_TASK_ID)
   }
 })
