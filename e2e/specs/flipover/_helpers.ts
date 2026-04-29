@@ -15,11 +15,19 @@ import { expect, type Page } from '@playwright/test'
  * src/components/task-detail/TaskDetailFormGrid.tsx.
  */
 
-/** Open the detail modal for the task whose visible name is `fixtureText`. */
+/**
+ * Open the detail modal for the task whose visible name is `fixtureText`
+ * AND wait for the form fields to mount. The dialog opens immediately on
+ * card click, but TaskDetailModal gates the form behind `!loading && task`
+ * — until `useTaskDetail` resolves, the dialog title reads "Loading..."
+ * and the Status/Priority/Bucket selects don't exist. Anchoring on the
+ * dialog alone races the test against the data load; anchoring on the
+ * Status select guarantees the form is mounted.
+ */
 export async function openDetailModal(page: Page, fixtureText: string): Promise<void> {
   await page.getByText(fixtureText).first().click()
-  // Modal renders as role="dialog" via the Dialog primitive.
   await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 })
+  await expect(page.getByLabel('Status').first()).toBeVisible({ timeout: 15_000 })
 }
 
 /**
@@ -35,9 +43,8 @@ export async function setStatus(
   page: Page,
   value: 'open' | 'in_progress' | 'waiting' | 'done' | 'cancelled',
 ): Promise<void> {
-  const select = page.getByLabel('Status').first()
-  await expect(select).toBeVisible({ timeout: 5_000 })
-  await select.selectOption(value)
+  // openDetailModal already waited for visibility — no need to re-poll.
+  await page.getByLabel('Status').first().selectOption(value)
 }
 
 /**
