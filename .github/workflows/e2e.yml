@@ -49,6 +49,11 @@ jobs:
           node-version: 22
           cache: 'npm'
 
+      - name: Seed e2e fixtures
+        env:
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/seed-e2e-fixtures.mjs
+
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
@@ -153,6 +158,12 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
+
+      - name: Seed e2e fixtures
+        if: steps.decide.outputs.run == 'true'
+        env:
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/seed-e2e-fixtures.mjs
 
       - name: Install dependencies
         if: steps.decide.outputs.run == 'true'
