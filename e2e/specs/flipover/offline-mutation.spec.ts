@@ -13,6 +13,13 @@ import { openDetailModal, setStatus, clickUpdate, restoreTaskStatus } from './_h
  * row-level checkbox / done-button affordance on TaskCard that doesn't
  * exist. See `e2e/specs/flipover/_helpers.ts` for the shared modal helpers.
  *
+ * Order matters: open the modal while ONLINE, then flip offline, then
+ * click Update. Going offline first makes Playwright's actionability
+ * check fight in-flight fetch failures (offline cascades into pending
+ * resource loads that mark the page as "navigating"), and the click on
+ * the card retries until timeout. The mutation still fires offline
+ * because Update is the trigger, not the modal-open.
+ *
  * NOTE: this spec mutates the today fixture (e45d0a2b). The `finally`
  * restore re-opens it via the modal flow so subsequent specs (run
  * alphabetically: online-cold-boot, outbox-replay, ...) start from the
@@ -23,9 +30,11 @@ test('offline task complete removes task from Today optimistically', async ({ pa
   const fixtureText = 'E2E fixture — today task'
   await expect(page.getByText(fixtureText).first()).toBeVisible({ timeout: 45_000 })
 
+  // Open modal online so the click resolves cleanly.
+  await openDetailModal(page, fixtureText)
+
   await context.setOffline(true)
   try {
-    await openDetailModal(page, fixtureText)
     await setStatus(page, 'done')
     await clickUpdate(page)
 

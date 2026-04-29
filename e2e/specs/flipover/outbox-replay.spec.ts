@@ -14,17 +14,20 @@ import { openDetailModal, setStatus, clickUpdate, restoreTaskStatus } from './_h
  *   2. A reload re-hydrates from server and the task stays out of Today
  *      (mutation persisted, not just optimistic).
  *
- * Restore re-opens the today task via the same modal flow so the canonical
- * seeded fixture state is preserved for downstream specs.
+ * Order matches offline-mutation: open modal online to dodge offline
+ * actionability fights, then flip offline before Update. Restore re-opens
+ * the today task via the same modal flow so the canonical seeded fixture
+ * state is preserved for downstream specs.
  */
 test('outbox drains after reconnect and mutation lands on server', async ({ page, context }) => {
   await page.goto('/')
   const fixtureText = 'E2E fixture — today task'
   await expect(page.getByText(fixtureText).first()).toBeVisible({ timeout: 45_000 })
 
+  await openDetailModal(page, fixtureText)
+
   await context.setOffline(true)
   try {
-    await openDetailModal(page, fixtureText)
     await setStatus(page, 'done')
     await clickUpdate(page)
     await expect(page.getByText(fixtureText).first()).toHaveCount(0, { timeout: 5_000 })
