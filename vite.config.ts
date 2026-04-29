@@ -49,8 +49,17 @@ export default defineConfig({
         // VITE_BASE_PATH determines which one this build deploys to.
         navigateFallback: BASE_PATH + 'index.html',
         navigateFallbackDenylist: [new RegExp(`^${BASE_PATH}api/`)],   // reserved; no such route today
-        skipWaiting: false,
-        clientsClaim: false,
+        // skipWaiting + clientsClaim: a fresh-install SW must take control of
+        // the current page so the *next* navigation (e.g. an offline reload)
+        // is SW-served. With both false, the new SW stays "waiting" until all
+        // clients close — and `page.reload()` doesn't close the client, so
+        // the reload navigates without SW control and fails offline.
+        // The previous false/false config was safe for production update
+        // flows (avoids surprise upgrades mid-session) but breaks the
+        // first-install-then-go-offline path that the airplane-read e2e
+        // covers and that real users hit on first PWA install + airplane mode.
+        skipWaiting: true,
+        clientsClaim: true,
         cleanupOutdatedCaches: true,
         // sw-uid-handler.js listens for SET_CACHE_UID messages from the page
         // and writes __SB_UID__ into the SW's globalThis so the
