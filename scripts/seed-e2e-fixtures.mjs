@@ -73,6 +73,11 @@ const FIXTURE_BUCKET_ID  = '646e0015-c84a-4beb-8462-0b8ff89958a7'
 
 // ISO timestamp shared across the batch so updated_at moves consistently.
 const NOW_ISO = new Date().toISOString()
+// Today's date in the UTC YYYY-MM-DD form expected by `action_node.date`.
+// Used for the today-fixture so it renders in TodayView's today section
+// (empty section triggers a "No tasks scheduled for today." string that
+// `airplane-read` asserts must not appear).
+const TODAY_YMD = NOW_ISO.slice(0, 10)
 // `created_at` is required (NOT NULL); we use a stable past date so the
 // existing rows aren't touched on this column. PostgREST upsert with
 // merge-duplicates writes whatever we send — keep it stable.
@@ -107,7 +112,7 @@ const ROWS = [
     priority: null,
     parent_id: FIXTURE_PROJECT_ID,
     space_id: FIXTURE_SPACE,
-    date: '2026-04-21',
+    date: TODAY_YMD,
     bucket: null,
     body: 'E2E fixture — today task',
     archived: false,

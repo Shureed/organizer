@@ -10,8 +10,10 @@ import path from 'path'
 // previews serve the dist root at "/", so we let the workflow override via
 // VITE_BASE_PATH to avoid 404s on the /organizer/-prefixed asset URLs baked
 // into index.html.
+const BASE_PATH = process.env.VITE_BASE_PATH ?? '/organizer/'
+
 export default defineConfig({
-  base: process.env.VITE_BASE_PATH ?? '/organizer/',
+  base: BASE_PATH,
   plugins: [
     tailwindcss(),
     react(),
@@ -23,22 +25,41 @@ export default defineConfig({
       workbox: {
         globPatterns: [
           'index.html',
-          'assets/rolldown-runtime-*.js',
-          'assets/preload-helper-*.js',
-          'assets/react-vendor-*.js',
-          'assets/supabase-vendor-*.js',
-          'assets/index-*.js',
-          'assets/index-*.css',
+          'assets/*.js',
+          'assets/*.css',
+          'assets/*.wasm',
           'favicon.svg',
           'icon-192.png',
           'icon-512.png',
           'manifest.json',
         ],
-        globIgnores: ['stats.html', 'assets/*.woff', 'assets/*.woff2', 'assets/utils-*.js', 'assets/*.wasm'],
-        navigateFallback: '/organizer/index.html',
-        navigateFallbackDenylist: [/^\/organizer\/api\//],   // reserved; no such route today
-        skipWaiting: false,
-        clientsClaim: false,
+        globIgnores: ['stats.html', 'assets/*.woff', 'assets/*.woff2', 'assets/utils-*.js'],
+        // Precache .wasm too — the sqlite3 worker fetches it during init,
+        // and on the very first session the runtime cache hasn't populated
+        // yet (SW install is still completing). Without precache, an offline
+        // reload after a single warm load fails: db.worker can't fetch the
+        // wasm. ~2MB precache cost; required for the airplane-read flow.
+        // Workbox precache size cap. The default 2MB rejects per-chunk; bump
+        // to a generous 10MB so the full lazy-chunk graph (~2-3MB total)
+        // lands in precache. Exceeding this on a single file is a real
+        // signal — it'd mean a vendor chunk grew unexpectedly.
+        maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
+        // navigateFallback must use the actual served path. GH Pages production
+        // serves at /organizer/index.html; CF Pages preview serves at /index.html.
+        // VITE_BASE_PATH determines which one this build deploys to.
+        navigateFallback: BASE_PATH + 'index.html',
+        navigateFallbackDenylist: [new RegExp(`^${BASE_PATH}api/`)],   // reserved; no such route today
+        // skipWaiting + clientsClaim: a fresh-install SW must take control of
+        // the current page so the *next* navigation (e.g. an offline reload)
+        // is SW-served. With both false, the new SW stays "waiting" until all
+        // clients close — and `page.reload()` doesn't close the client, so
+        // the reload navigates without SW control and fails offline.
+        // The previous false/false config was safe for production update
+        // flows (avoids surprise upgrades mid-session) but breaks the
+        // first-install-then-go-offline path that the airplane-read e2e
+        // covers and that real users hit on first PWA install + airplane mode.
+        skipWaiting: true,
+        clientsClaim: true,
         cleanupOutdatedCaches: true,
         // sw-uid-handler.js listens for SET_CACHE_UID messages from the page
         // and writes __SB_UID__ into the SW's globalThis so the
@@ -51,7 +72,12 @@ export default defineConfig({
           // unauthenticated first-boot does not hit /rest/v1/* and the SQLite
           // flag gates all authenticated reads through the local DB.
           {
-            urlPattern: /\/organizer\/assets\/.*\.(woff2?|ttf)$/,
+            // Match assets/ regardless of base-path prefix. GH Pages production
+            // serves at /organizer/assets/...; CF Pages preview at /assets/...
+            // The hardcoded /organizer/ prefix was an `airplane-read` blocker:
+            // on CF preview, lazy chunks weren't runtime-cached because the
+            // pattern never matched, so offline reload couldn't serve them.
+            urlPattern: /\/assets\/.*\.(woff2?|ttf)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'fonts',
@@ -62,7 +88,7 @@ export default defineConfig({
           {
             // T4: include .wasm alongside .js so sqlite3.wasm gets runtime-cached.
             // maxEntries bumped 40 → 60 to accommodate the worker + wasm chunks.
-            urlPattern: /\/organizer\/assets\/.*\.(js|wasm)$/,
+            urlPattern: /\/assets\/.*\.(js|wasm)$/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'view-chunks',
