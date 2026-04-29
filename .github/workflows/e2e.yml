@@ -137,12 +137,15 @@ jobs:
           echo "PR #$pr changed files:"
           printf '%s\n' "$paths"
 
-          if printf '%s\n' "$paths" | grep -qE '^src/sync/'; then
+          # The flipover gate runs when EITHER the sync layer changes OR the
+          # flipover specs themselves change. Skipping a flipover-spec-only
+          # PR like a spec rewrite means the rewrite ships unverified.
+          if printf '%s\n' "$paths" | grep -qE '^(src/sync/|e2e/specs/flipover/)'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
-            echo "reason=sync-paths-touched" >> "$GITHUB_OUTPUT"
+            echo "reason=sync-or-flipover-paths-touched" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "reason=no-sync-paths" >> "$GITHUB_OUTPUT"
+            echo "reason=no-relevant-paths" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/setup-node@v4
