@@ -10,8 +10,10 @@ import path from 'path'
 // previews serve the dist root at "/", so we let the workflow override via
 // VITE_BASE_PATH to avoid 404s on the /organizer/-prefixed asset URLs baked
 // into index.html.
+const BASE_PATH = process.env.VITE_BASE_PATH ?? '/organizer/'
+
 export default defineConfig({
-  base: process.env.VITE_BASE_PATH ?? '/organizer/',
+  base: BASE_PATH,
   plugins: [
     tailwindcss(),
     react(),
@@ -42,8 +44,11 @@ export default defineConfig({
         // lands in precache. Exceeding this on a single file is a real
         // signal — it'd mean a vendor chunk grew unexpectedly.
         maximumFileSizeToCacheInBytes: 10 * 1024 * 1024,
-        navigateFallback: '/organizer/index.html',
-        navigateFallbackDenylist: [/^\/organizer\/api\//],   // reserved; no such route today
+        // navigateFallback must use the actual served path. GH Pages production
+        // serves at /organizer/index.html; CF Pages preview serves at /index.html.
+        // VITE_BASE_PATH determines which one this build deploys to.
+        navigateFallback: BASE_PATH + 'index.html',
+        navigateFallbackDenylist: [new RegExp(`^${BASE_PATH}api/`)],   // reserved; no such route today
         skipWaiting: false,
         clientsClaim: false,
         cleanupOutdatedCaches: true,
