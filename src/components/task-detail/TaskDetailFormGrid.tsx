@@ -44,6 +44,7 @@ export function TaskDetailFormGrid({
             Status
           </label>
           <select
+            aria-label="Status"
             value={status}
             onChange={(e) => onStatusChange(e.target.value as ItemStatus)}
             style={{
@@ -65,6 +66,7 @@ export function TaskDetailFormGrid({
             Priority
           </label>
           <select
+            aria-label="Priority"
             value={priority}
             onChange={(e) => onPriorityChange(e.target.value)}
             style={{
@@ -119,6 +121,7 @@ export function TaskDetailFormGrid({
             Bucket
           </label>
           <select
+            aria-label="Bucket"
             value={bucket}
             onChange={(e) => onBucketChange(e.target.value)}
             disabled={isDateSet}
