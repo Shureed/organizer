@@ -52,15 +52,23 @@ test('realtime UPDATE lands in UI without a /rest/v1/ view GET', async ({ page, 
     timeout: 45_000,
   })
 
-  // Start watching for REST view fetches from the UI *after* warm load.
+  // Start watching for display-path REST view fetches *after* warm load.
+  // The realtime apply path should write to local SQLite without triggering
+  // a REST refetch of the displayed view. Exclude pull-engine sync traffic
+  // (signature: `order=updated_at.asc` and `&limit=` keyset paging) — that
+  // legitimately fires after any UPDATE that advances the cursor and is
+  // orthogonal to the realtime apply path. Same filter shape as warm-opfs.
   const viewReads: string[] = []
   await context.route('**/rest/v1/**', async (route) => {
     const req = route.request()
+    const url = req.url()
     if (
       req.method() === 'GET' &&
-      /\/rest\/v1\/(v_active_tasks|action_node)/.test(req.url())
+      /\/rest\/v1\/(v_active_tasks|v_active_projects|v_new_inbox|v_chain_status)/.test(url) &&
+      !/order=updated_at\.asc/.test(url) &&
+      !/&limit=\d/.test(url)
     ) {
-      viewReads.push(req.url())
+      viewReads.push(url)
     }
     await route.continue()
   })
