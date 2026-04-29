@@ -25,12 +25,18 @@ export default defineConfig({
           'index.html',
           'assets/*.js',
           'assets/*.css',
+          'assets/*.wasm',
           'favicon.svg',
           'icon-192.png',
           'icon-512.png',
           'manifest.json',
         ],
-        globIgnores: ['stats.html', 'assets/*.woff', 'assets/*.woff2', 'assets/utils-*.js', 'assets/*.wasm'],
+        globIgnores: ['stats.html', 'assets/*.woff', 'assets/*.woff2', 'assets/utils-*.js'],
+        // Precache .wasm too — the sqlite3 worker fetches it during init,
+        // and on the very first session the runtime cache hasn't populated
+        // yet (SW install is still completing). Without precache, an offline
+        // reload after a single warm load fails: db.worker can't fetch the
+        // wasm. ~2MB precache cost; required for the airplane-read flow.
         // Workbox precache size cap. The default 2MB rejects per-chunk; bump
         // to a generous 10MB so the full lazy-chunk graph (~2-3MB total)
         // lands in precache. Exceeding this on a single file is a real
