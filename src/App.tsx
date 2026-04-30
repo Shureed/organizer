@@ -4,7 +4,7 @@ import {
   Home,
   CalendarDays,
   Clock,
-  AlertCircle,
+  Settings as SettingsIcon,
   Inbox,
   Search,
   X,
@@ -27,12 +27,12 @@ const LoginPage = lazy(() => import('./components/LoginPage').then(m => ({ defau
 const TodayView = lazy(() => import('./views/TodayView').then(m => ({ default: m.TodayView })))
 const CalendarView = lazy(() => import('./views/CalendarView').then(m => ({ default: m.CalendarView })))
 const RecentsView = lazy(() => import('./views/RecentsView').then(m => ({ default: m.RecentsView })))
-const IssuesView = lazy(() => import('./views/IssuesView').then(m => ({ default: m.IssuesView })))
+const SettingsView = lazy(() => import('./views/SettingsView').then(m => ({ default: m.SettingsView })))
 const InboxView = lazy(() => import('./views/InboxView').then(m => ({ default: m.InboxView })))
 const TaskDetailModal = lazy(() => import('./components/shared/TaskDetailModal').then(m => ({ default: m.TaskDetailModal })))
 const InboxDetailModal = lazy(() => import('./components/inbox/InboxDetailModal').then(m => ({ default: m.InboxDetailModal })))
 
-type View = 'today' | 'calendar' | 'recents' | 'issues' | 'inbox'
+type View = 'today' | 'calendar' | 'recents' | 'settings' | 'inbox'
 
 // ── Prefetch helpers ────────────────────────────────────────────────────────────
 // Called fire-and-forget on mouseenter / focus / touchstart over nav buttons.
@@ -58,9 +58,9 @@ export const prefetchRecents = (): void => {
   if (dataSaverEnabled()) return
   import('./views/RecentsView').catch(() => {/* swallow */})
 }
-export const prefetchIssues = (): void => {
+export const prefetchSettings = (): void => {
   if (dataSaverEnabled()) return
-  import('./views/IssuesView').catch(() => {/* swallow */})
+  import('./views/SettingsView').catch(() => {/* swallow */})
 }
 export const prefetchInbox = (): void => {
   if (dataSaverEnabled()) return
@@ -73,7 +73,7 @@ const VIEW_PREFETCH: Record<View, PrefetchFn> = {
   today: prefetchToday,
   calendar: prefetchCalendar,
   recents: prefetchRecents,
-  issues: prefetchIssues,
+  settings: prefetchSettings,
   inbox: prefetchInbox,
 }
 
@@ -81,7 +81,7 @@ const TABS: { id: View; label: string; Icon: React.ComponentType<{ size?: number
   { id: 'today', label: 'Today', Icon: Home },
   { id: 'calendar', label: 'Calendar', Icon: CalendarDays },
   { id: 'recents', label: 'Recents', Icon: Clock },
-  { id: 'issues', label: 'Issues', Icon: AlertCircle },
+  { id: 'settings', label: 'Settings', Icon: SettingsIcon },
   { id: 'inbox', label: 'Inbox', Icon: Inbox },
 ]
 
@@ -280,7 +280,7 @@ function MainApp({ session }: MainAppProps) {
           {currentView === 'today' && <TodayView />}
           {currentView === 'calendar' && <CalendarView />}
           {currentView === 'recents' && <RecentsView />}
-          {currentView === 'issues' && <IssuesView />}
+          {currentView === 'settings' && <SettingsView />}
           {currentView === 'inbox' && <InboxView />}
         </Suspense>
       </main>
