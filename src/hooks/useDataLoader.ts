@@ -282,9 +282,6 @@ export const loadTodayView = (): Promise<unknown> =>
 export const loadCalendarView = (): Promise<unknown> =>
   Promise.all([loadTasks(), loadClosedTasks()])
 
-export const loadIssuesView = (): Promise<unknown> =>
-  Promise.all([loadTasks(), loadActiveContainers()])
-
 export const loadRecentsView = (): Promise<void> => loadRecentItems()
 
 export const loadInboxView = (): Promise<void> => loadInbox()

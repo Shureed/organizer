@@ -36,9 +36,6 @@ const resetUIStore = () =>
       calendarYear: 2026,
       calendarMonth: 0,
       calendarSelectedDay: null,
-      issuesFilterType: '',
-      issuesFilterPriority: '',
-      issuesFilterPhase: '',
       showClosedSearch: false,
       searchItems: [],
       fuseIndex: null,
@@ -136,7 +133,6 @@ describe('UIStore.patchUI', () => {
     const { ui } = useUIStore.getState()
     expect(ui.currentView).toBe('inbox')
     // All other fields stay at reset defaults.
-    expect(ui.issuesFilterType).toBe('')
     expect(ui.showClosedSearch).toBe(false)
     expect(ui.openTaskId).toBe(null)
   })

@@ -33,13 +33,10 @@ export interface AppData {
 }
 
 export interface AppUI {
-  currentView: 'today' | 'calendar' | 'recents' | 'issues' | 'inbox'
+  currentView: 'today' | 'calendar' | 'recents' | 'settings' | 'inbox'
   calendarYear: number
   calendarMonth: number
   calendarSelectedDay: string | null
-  issuesFilterType: string
-  issuesFilterPriority: string
-  issuesFilterPhase: string
   showClosedSearch: boolean
   searchItems: SearchItem[]
   fuseIndex: Fuse<SearchItem> | null
@@ -88,9 +85,6 @@ const initialUI: AppUI = {
   calendarYear: new Date().getFullYear(),
   calendarMonth: new Date().getMonth(),
   calendarSelectedDay: new Date().toLocaleDateString('en-CA'),
-  issuesFilterType: '',
-  issuesFilterPriority: '',
-  issuesFilterPhase: '',
   showClosedSearch: false,
   searchItems: [],
   fuseIndex: null,
