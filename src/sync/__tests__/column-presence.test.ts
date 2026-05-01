@@ -32,6 +32,8 @@ import {
   sqlitePinnedDoneTasks,
   sqliteRecentItems,
 } from '../querySources'
+// The seed user — used as the uid binding for queries that now carry user_id = ?
+const SEED_USER_ID = 'user-test-0001'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,10 +66,12 @@ beforeAll(async () => {
 // ---------------------------------------------------------------------------
 
 /** Run a SQL string against the shared in-memory DB, return all rows. */
-function selectRows(sql: string): Record<string, unknown>[] {
+function selectRows(sql: string, bind?: unknown[]): Record<string, unknown>[] {
   const rows: Record<string, unknown>[] = []
-  db.exec({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(db as any).exec({
     sql,
+    bind,
     rowMode: 'object',
     callback: (row: Record<string, unknown>) => { rows.push({ ...row }) },
   })
@@ -137,6 +141,8 @@ interface LoaderSpec {
    * schema columns.  Views expose the right column names via pragma_table_info.
    */
   sourceTableOrView: string
+  /** Positional bindings for the query (all slice queries now require user_id). */
+  bind: unknown[]
 }
 
 const LOADERS: LoaderSpec[] = [
@@ -144,36 +150,43 @@ const LOADERS: LoaderSpec[] = [
     name: 'sqliteTasks',
     sql: sqliteTasks,
     sourceTableOrView: 'v_active_tasks',
+    bind: [SEED_USER_ID],
   },
   {
     name: 'sqliteProjects',
     sql: sqliteProjects,
     sourceTableOrView: 'v_active_projects',
+    bind: [SEED_USER_ID],
   },
   {
     name: 'sqliteClosedTasks',
     sql: sqliteClosedTasks,
     sourceTableOrView: 'action_node',
+    bind: [SEED_USER_ID],
   },
   {
     name: 'sqliteClosedProjects',
     sql: sqliteClosedProjects,
     sourceTableOrView: 'action_node',
+    bind: [SEED_USER_ID],
   },
   {
     name: 'sqliteInbox',
     sql: sqliteInbox,
     sourceTableOrView: 'v_new_inbox',
+    bind: [SEED_USER_ID],
   },
   {
     name: 'sqlitePinnedDoneTasks',
     sql: sqlitePinnedDoneTasks,
     sourceTableOrView: 'action_node',
+    bind: [SEED_USER_ID],
   },
   {
     name: 'sqliteRecentItems',
     sql: sqliteRecentItems,
     sourceTableOrView: 'action_node',
+    bind: [SEED_USER_ID],
   },
 ]
 
@@ -184,7 +197,7 @@ const LOADERS: LoaderSpec[] = [
 describe('column-presence — forward check (query returns expected columns)', () => {
   for (const loader of LOADERS) {
     it(`${loader.name}: ≥1 row returned and all SELECT columns present on rows`, () => {
-      const rows = selectRows(loader.sql)
+      const rows = selectRows(loader.sql, loader.bind)
 
       expect(rows.length).toBeGreaterThan(0)
 
