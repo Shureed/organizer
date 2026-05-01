@@ -1,9 +1,10 @@
 /**
- * apply.ts — Realtime direct-apply to SQLite (master-P6 PR-C T11 + T9.5 fix)
+ * apply.ts — Realtime direct-apply to SQLite.
  *
- * applyRealtime(payload) receives a postgres_changes payload from Supabase
- * realtime and applies it to the local SQLite DB with the LWW guard from
- * pull.ts (plan §4.7).
+ * applyBroadcastChanges(envelope) is the public entry: it reshapes a Supabase
+ * `realtime.broadcast_changes` payload (per cortex node ccfb06b7) and delegates
+ * to applyRealtime, which applies the row to the local SQLite DB with the LWW
+ * guard from pull.ts (plan §4.7).
  *
  * INSERT / UPDATE: UPSERT with LWW WHERE clause (excluded.updated_at > local
  * OR local._dirty = 0).  Dirty local rows with a later optimistic updated_at
@@ -40,17 +41,42 @@ export interface RealtimePayload {
   old: Record<string, unknown>
 }
 
-// ── applyRealtime ──────────────────────────────────────────────────────────────
+// ── applyBroadcastChanges (public entry — cortex node ccfb06b7) ──────────────
+//
+// Supabase Realtime's broadcast_changes envelope:
+//   - top level: { event, meta, payload, type }
+//   - inner:     { id, table, record, schema, operation, old_record }
+// where `record` ≡ NEW row and `old_record` ≡ OLD row (null on INSERT).
+// We reshape to RealtimePayload and delegate to applyRealtime, so the SQLite
+// apply logic (LWW guard, join-col refresh, soft-delete) is unchanged.
+//
+// applyRealtime stays exported for now; it is unused after T4 lands and can be
+// removed in T6 along with the (now dead) postgres_changes path.
 
-/**
- * Apply a Supabase postgres_changes payload directly to the local SQLite DB.
- *
- * Returns silently if:
- *  - SQLite is not available (flag off or OPFS failed)
- *  - The table is not one we mirror (e.g. notes, people)
- *
- * Never throws — all errors are swallowed so realtime is best-effort.
- */
+export interface BroadcastChangesPayload {
+  event: string
+  payload: {
+    id?: string
+    table: string
+    schema: string
+    operation: 'INSERT' | 'UPDATE' | 'DELETE'
+    record: Record<string, unknown> | null
+    old_record: Record<string, unknown> | null
+  }
+}
+
+export async function applyBroadcastChanges(p: BroadcastChangesPayload): Promise<void> {
+  const inner = p.payload
+  if (!inner || !inner.operation || !inner.table) return
+  await applyRealtime({
+    eventType: inner.operation,
+    table: inner.table,
+    schema: inner.schema,
+    new: inner.record ?? {},
+    old: inner.old_record ?? {},
+  })
+}
+
 export async function applyRealtime(payload: RealtimePayload): Promise<void> {
   try {
     const available = await isSqliteAvailable()

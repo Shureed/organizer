@@ -3,7 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { sliceLoaders, loadAll, invalidateCommentsFor } from './useDataLoader'
 import { syncAll } from '../sync/pull'
-import { applyRealtime } from '../sync/apply'
+import { applyBroadcastChanges, type BroadcastChangesPayload } from '../sync/apply'
 import { isSqliteAvailable } from '../sync/client'
 import type { SliceKey } from './useDataLoader'
 
@@ -93,37 +93,34 @@ function invalidateComments(payload: {
  *
  * When the flag is off: fall through to the existing invalidateFor path.
  */
-async function handleRealtimeEvent(
+async function handleBroadcastEvent(
   table: string,
-  payload: {
-    eventType: string
-    table: string
-    schema: string
-    new: Record<string, unknown>
-    old: Record<string, unknown>
-  },
+  envelope: BroadcastChangesPayload,
 ): Promise<void> {
+  // The invalidation helpers below want the legacy {new, old} shape (they read
+  // entity_type/entity_id off the row). Reshape once at this boundary so the
+  // rest of the file is unchanged.
+  const inner = envelope.payload
+  const legacyShape = {
+    new: (inner?.record ?? {}) as Record<string, unknown>,
+    old: (inner?.old_record ?? {}) as Record<string, unknown>,
+  }
+
   if (await sqliteReady()) {
-    await applyRealtime({
-      eventType: payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE',
-      table: payload.table,
-      schema: payload.schema,
-      new: payload.new,
-      old: payload.old,
-    })
+    await applyBroadcastChanges(envelope)
     // Trigger affected slice loaders after local DB is updated.
     if (table === 'comments') {
-      invalidateComments(payload)
+      invalidateComments(legacyShape)
     } else {
-      invalidateFor(table, payload)
+      invalidateFor(table, legacyShape)
     }
     return
   }
-  // Flag off: existing REST-invalidation path.
+  // Flag off: REST-invalidation path.
   if (table === 'comments') {
-    invalidateComments(payload)
+    invalidateComments(legacyShape)
   } else {
-    invalidateFor(table, payload)
+    invalidateFor(table, legacyShape)
   }
 }
 
@@ -162,44 +159,47 @@ export function useRealtime(session: Session | null): void {
       hasSubscribedOnce = true
     }
 
-    // user_id filter is defense in depth — RLS already enforces ownership, but
-    // it tightens what hits the wire and closes the DELETE PK-only fallback in
-    // case REPLICA IDENTITY FULL ever regresses (cortex node bcbfa855).
-    const userFilter = `user_id=eq.${session.user.id}`
+    // Realtime delivery via broadcast_changes + private channels (cortex node
+    // ccfb06b7). Topic is `user:{uid}:{table}`; the server-side trigger
+    // (realtime_broadcast_user_changes) only ever sends to topics matching the
+    // owning user, and the RLS policy on realtime.messages enforces that a
+    // subscriber can only read topics matching their own JWT sub. Security
+    // boundary is now server-side; no client filter needed.
+    const uid = session.user.id
 
     const action = supabase
-      .channel('rt:action_node')
+      .channel(`user:${uid}:action_node`, { config: { private: true } })
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'action_node', filter: userFilter },
+        'broadcast',
+        { event: '*' },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (p: any) => void handleRealtimeEvent('action_node', p),
+        (p: any) => void handleBroadcastEvent('action_node', p as BroadcastChangesPayload),
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') void onRejoin()
       })
 
     const inbox = supabase
-      .channel('rt:inbox')
+      .channel(`user:${uid}:inbox`, { config: { private: true } })
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'inbox', filter: userFilter },
+        'broadcast',
+        { event: '*' },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (p: any) => void handleRealtimeEvent('inbox', p),
+        (p: any) => void handleBroadcastEvent('inbox', p as BroadcastChangesPayload),
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') void onRejoin()
       })
 
-    // Subscribe to own-user comments only; entity_type/entity_id routing still
-    // happens in invalidateComments off the payload.
+    // Comments: same per-user topic. entity_type/entity_id routing still
+    // happens in invalidateComments off the row payload.
     const comments = supabase
-      .channel('rt:comments')
+      .channel(`user:${uid}:comments`, { config: { private: true } })
       .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'comments', filter: userFilter },
+        'broadcast',
+        { event: '*' },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (p: any) => void handleRealtimeEvent('comments', p),
+        (p: any) => void handleBroadcastEvent('comments', p as BroadcastChangesPayload),
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') void onRejoin()
