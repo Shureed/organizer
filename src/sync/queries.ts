@@ -12,96 +12,96 @@
 import { query } from './client'
 import { useDataStore } from '../store/appState'
 import type { SqlBindings } from './db.worker'
+import {
+  sqliteTasks as sqliteTasksSQL,
+  sqliteProjects as sqliteProjectsSQL,
+  sqliteClosedTasks as sqliteClosedTasksSQL,
+  sqliteClosedProjects as sqliteClosedProjectsSQL,
+  sqliteInbox as sqliteInboxSQL,
+  sqlitePinnedDoneTasks as sqlitePinnedDoneTasksSQL,
+  sqlitePinnedAll as sqlitePinnedAllSQL,
+  sqliteRecentItems as sqliteRecentItemsSQL,
+} from './querySources'
+
+// ---------------------------------------------------------------------------
+// Auth uid helper — synchronous, belt-and-suspenders
+//
+// Reads from globalThis.__SB_UID__ which is set by setCacheUserScope() in
+// src/lib/pwa.ts on every auth state change (including initial getSession).
+// If the uid is not yet known (pre-login), returns the impossible fallback
+// UUID so that every query returns zero rows rather than leaking data.
+// ---------------------------------------------------------------------------
+
+const FALLBACK_UID = '00000000-0000-0000-0000-000000000000'
+
+function getLocalUid(): string {
+  const uid = (globalThis as unknown as { __SB_UID__?: string }).__SB_UID__
+  if (!uid || uid === 'anon') return FALLBACK_UID
+  return uid
+}
 
 // ── Slice query functions ────────────────────────────────────────────────────
 
 export async function sqliteTasks(): Promise<void> {
   const rows = await query(
-    `SELECT id, user_id, name, status, type, priority, parent_id, space_id,
-            date, bucket, body, completed_at, archived, created_at, updated_at,
-            project_name, space_name, space_path, pinned, git_pr_url, git_backed
-       FROM v_active_tasks
-      ORDER BY date ASC NULLS LAST, created_at ASC`,
+    sqliteTasksSQL,
+    [getLocalUid()] as unknown as SqlBindings,
   )
   useDataStore.getState().setData({ tasks: rows as never[] })
 }
 
 export async function sqliteProjects(): Promise<void> {
   const rows = await query(
-    `SELECT id, user_id, name, status, space_id, body, archived,
-            created_at, updated_at, space_name, space_path, open_task_count
-       FROM v_active_projects
-      ORDER BY name ASC`,
+    sqliteProjectsSQL,
+    [getLocalUid()] as unknown as SqlBindings,
   )
   useDataStore.getState().setData({ projects: rows as never[] })
 }
 
 export async function sqliteClosedTasks(): Promise<void> {
   const rows = await query(
-    `SELECT *
-       FROM action_node
-      WHERE status IN ('done', 'cancelled')
-        AND archived = 0
-        AND type != 'project'
-        AND _deleted = 0`,
+    sqliteClosedTasksSQL,
+    [getLocalUid()] as unknown as SqlBindings,
   )
   useDataStore.getState().setData({ closedTasks: rows as never[] })
 }
 
 export async function sqliteClosedProjects(): Promise<void> {
   const rows = await query(
-    `SELECT *
-       FROM action_node
-      WHERE type = 'project'
-        AND status IN ('done', 'cancelled')
-        AND archived = 0
-        AND _deleted = 0`,
+    sqliteClosedProjectsSQL,
+    [getLocalUid()] as unknown as SqlBindings,
   )
   useDataStore.getState().setData({ closedProjects: rows as never[] })
 }
 
 export async function sqliteInbox(): Promise<void> {
   const rows = await query(
-    `SELECT id, user_id, title, body, source, item_id, item_type,
-            archived, created_at, updated_at, read, pinned
-       FROM v_new_inbox`,
+    sqliteInboxSQL,
+    [getLocalUid()] as unknown as SqlBindings,
   )
   useDataStore.getState().setData({ inbox: rows as never[] })
 }
 
 export async function sqlitePinnedDoneTasks(): Promise<void> {
   const rows = await query(
-    `SELECT *
-       FROM action_node
-      WHERE pinned = 1
-        AND status = 'done'
-        AND archived = 0
-        AND _deleted = 0
-      ORDER BY created_at ASC`,
+    sqlitePinnedDoneTasksSQL,
+    [getLocalUid()] as unknown as SqlBindings,
   )
   useDataStore.getState().setData({ pinnedDoneTasks: rows as never[] })
 }
 
 export async function sqlitePinnedAll(): Promise<void> {
   const rows = await query(
-    `SELECT *
-       FROM action_node
-      WHERE pinned = 1
-        AND archived = 0
-        AND _deleted = 0
-      ORDER BY created_at ASC`,
+    sqlitePinnedAllSQL,
+    [getLocalUid()] as unknown as SqlBindings,
   )
   useDataStore.getState().setData({ pinnedAll: rows as never[] })
 }
 
 export async function sqliteRecentItems(): Promise<void> {
   const rows = await query(
-    `SELECT id, name, status, updated_at, type, priority
-       FROM action_node
-      WHERE archived = 0
-        AND _deleted = 0
-      ORDER BY updated_at DESC
-      LIMIT 25`,
+    sqliteRecentItemsSQL,
+    [getLocalUid()] as unknown as SqlBindings,
   )
   useDataStore.getState().setData({ recentItems: rows as never[] })
 }
