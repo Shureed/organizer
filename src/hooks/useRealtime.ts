@@ -162,11 +162,16 @@ export function useRealtime(session: Session | null): void {
       hasSubscribedOnce = true
     }
 
+    // user_id filter is defense in depth — RLS already enforces ownership, but
+    // it tightens what hits the wire and closes the DELETE PK-only fallback in
+    // case REPLICA IDENTITY FULL ever regresses (cortex node bcbfa855).
+    const userFilter = `user_id=eq.${session.user.id}`
+
     const action = supabase
       .channel('rt:action_node')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'action_node' },
+        { event: '*', schema: 'public', table: 'action_node', filter: userFilter },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (p: any) => void handleRealtimeEvent('action_node', p),
       )
@@ -178,7 +183,7 @@ export function useRealtime(session: Session | null): void {
       .channel('rt:inbox')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'inbox' },
+        { event: '*', schema: 'public', table: 'inbox', filter: userFilter },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (p: any) => void handleRealtimeEvent('inbox', p),
       )
@@ -186,13 +191,13 @@ export function useRealtime(session: Session | null): void {
         if (status === 'SUBSCRIBED') void onRejoin()
       })
 
-    // Subscribe to all comments events; filtering happens in invalidateComments
-    // where we extract entity_type + entity_id from the payload.
+    // Subscribe to own-user comments only; entity_type/entity_id routing still
+    // happens in invalidateComments off the payload.
     const comments = supabase
       .channel('rt:comments')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'comments' },
+        { event: '*', schema: 'public', table: 'comments', filter: userFilter },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (p: any) => void handleRealtimeEvent('comments', p),
       )
