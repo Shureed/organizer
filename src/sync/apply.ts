@@ -33,7 +33,7 @@ import type { SyncTable } from './pull'
 
 type RealtimeEventType = 'INSERT' | 'UPDATE' | 'DELETE'
 
-export interface RealtimePayload {
+interface RealtimePayload {
   eventType: RealtimeEventType
   table: string
   schema: string
@@ -47,11 +47,8 @@ export interface RealtimePayload {
 //   - top level: { event, meta, payload, type }
 //   - inner:     { id, table, record, schema, operation, old_record }
 // where `record` ≡ NEW row and `old_record` ≡ OLD row (null on INSERT).
-// We reshape to RealtimePayload and delegate to applyRealtime, so the SQLite
-// apply logic (LWW guard, join-col refresh, soft-delete) is unchanged.
-//
-// applyRealtime stays exported for now; it is unused after T4 lands and can be
-// removed in T6 along with the (now dead) postgres_changes path.
+// Reshapes to the internal RealtimePayload contract and delegates to the SQLite
+// apply logic (LWW guard, join-col refresh, soft-delete).
 
 export interface BroadcastChangesPayload {
   event: string
@@ -77,7 +74,7 @@ export async function applyBroadcastChanges(p: BroadcastChangesPayload): Promise
   })
 }
 
-export async function applyRealtime(payload: RealtimePayload): Promise<void> {
+async function applyRealtime(payload: RealtimePayload): Promise<void> {
   try {
     const available = await isSqliteAvailable()
     if (!available) return
