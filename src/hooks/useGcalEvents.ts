@@ -26,11 +26,29 @@ export interface UseGcalEventsArgs {
   enabled?: boolean
 }
 
-function isReconnectError(err: { message?: string; hint?: string } | null): boolean {
-  if (!err) return false
-  if (err.hint === 'reconnect_required') return true
-  const msg = err.message ?? ''
-  return msg.includes('reconnect_required') || msg.includes('no_token_stored')
+interface GcalFetchResponse {
+  items?: GcalEvent[]
+  error?: string
+  detail?: unknown
+}
+
+// Calls the gcal-fetch edge function directly. The SQL wrapper fn_gcal_fetch
+// uses pg_net + net._await_response which polls via pg_sleep — that exceeds
+// the authenticated role's statement timeout when the edge fn takes more than
+// a few seconds. Raw fetch (not supabase.functions.invoke) so we can read the
+// structured error body on non-2xx; invoke consumes it.
+async function fetchEvents(start: string, end: string, calendarId: string): Promise<GcalFetchResponse> {
+  const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '')
+  const res = await fetch(`${base}/functions/v1/gcal-fetch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start, end, calendar_id: calendarId }),
+  })
+  try {
+    return (await res.json()) as GcalFetchResponse
+  } catch {
+    return { error: 'fetch_failed', detail: `HTTP ${res.status} (non-JSON body)` }
+  }
 }
 
 export function useGcalEvents({
@@ -56,29 +74,31 @@ export function useGcalEvents({
     setError(null)
 
     ;(async () => {
-      const { data, error: rpcErr } = await supabase.rpc('fn_gcal_fetch_self', {
-        p_start: start,
-        p_end: end,
-        p_calendar_id: calendarId,
-      })
-      if (cancelled) return
+      try {
+        const res = await fetchEvents(start, end, calendarId)
+        if (cancelled) return
 
-      if (rpcErr) {
-        if (isReconnectError(rpcErr as { message?: string; hint?: string })) {
+        if (res.error === 'reconnect_required') {
           setStatus('reconnect_required')
           setEvents([])
           setError(null)
           return
         }
+        if (res.error) {
+          setStatus('error')
+          setError(`${res.error}: ${typeof res.detail === 'string' ? res.detail : JSON.stringify(res.detail)}`)
+          setEvents([])
+          return
+        }
+        setEvents(res.items ?? [])
+        setStatus('ok')
+        setError(null)
+      } catch (err) {
+        if (cancelled) return
         setStatus('error')
-        setError(rpcErr.message ?? String(rpcErr))
+        setError(err instanceof Error ? err.message : String(err))
         setEvents([])
-        return
       }
-
-      setEvents((data as GcalEvent[] | null) ?? [])
-      setStatus('ok')
-      setError(null)
     })()
 
     return () => {

@@ -62,15 +62,17 @@ export function CalendarView() {
     end: monthWindow.end,
   })
 
-  // Per-day events map keyed by local YYYY-MM-DD of starts_at.
+  // Per-day events map. All-day events are keyed by UTC date — GCal returns
+  // them as midnight-UTC of the calendar date the user picked, so converting
+  // to local would shift them to the previous day in any negative-offset tz.
+  // Timed events are keyed by local date (their wall-clock time).
   const eventsByDay = useMemo(() => {
     const map = new Map<string, GcalEvent[]>()
     for (const ev of gcalEvents) {
       const d = new Date(ev.starts_at)
-      const y = d.getFullYear()
-      const m = String(d.getMonth() + 1).padStart(2, '0')
-      const day = String(d.getDate()).padStart(2, '0')
-      const key = `${y}-${m}-${day}`
+      const key = ev.all_day
+        ? d.toISOString().slice(0, 10)
+        : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(ev)
     }

@@ -55,48 +55,43 @@ async function generatePkce(): Promise<{ verifier: string; challenge: string }> 
   return { verifier, challenge }
 }
 
+function fnUrl(name: string): string {
+  const base = (import.meta.env.VITE_SUPABASE_URL as string).replace(/\/$/, '')
+  return `${base}/functions/v1/${name}`
+}
+
 async function probeConnected(): Promise<boolean> {
-  // Probe with a 1-day window. fn_gcal_fetch_self raises on reconnect_required;
-  // any successful return (even empty) means connected.
+  // Probe with a 1-day window. Raw fetch (not supabase.functions.invoke):
+  // invoke consumes the Response body to populate error.message, so we lose
+  // access to the structured `error` field. Edge fns use verify_jwt=false,
+  // so no Authorization header is required.
   const start = new Date().toISOString()
   const end = new Date(Date.now() + 86_400_000).toISOString()
-  const { error } = await supabase.rpc('fn_gcal_fetch_self', {
-    p_start: start,
-    p_end: end,
-    p_calendar_id: 'primary',
+  const res = await fetch(fnUrl('gcal-fetch'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start, end, calendar_id: 'primary' }),
   })
-  if (!error) return true
-  // Distinguish reconnect_required (expected) from real errors. The PG hint
-  // carries the original error code; the message contains the JSON body.
-  const msg = error.message ?? ''
-  const hint = (error as { hint?: string }).hint ?? ''
-  if (hint === 'reconnect_required' || msg.includes('reconnect_required') || msg.includes('no_token_stored')) {
-    return false
-  }
-  // Other errors bubble up — don't claim connected just because the call failed
-  // for an unrelated reason.
-  throw error
+  let body: { error?: string } | null = null
+  try { body = await res.json() } catch { /* ignore */ }
+  if (body?.error === 'reconnect_required') return false
+  if (res.ok) return true
+  throw new Error(body?.error ? `${body.error}` : `HTTP ${res.status}`)
 }
 
 async function exchangeCode(code: string, codeVerifier: string): Promise<void> {
-  const { data, error } = await supabase.functions.invoke('gcal-oauth-callback', {
-    body: { code, code_verifier: codeVerifier, redirect_uri: redirectUri() },
+  const session = (await supabase.auth.getSession()).data.session
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
+  const res = await fetch(fnUrl('gcal-oauth-callback'), {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ code, code_verifier: codeVerifier, redirect_uri: redirectUri() }),
   })
-  if (error) {
-    // FunctionsHttpError carries the body in error.context.response — unwrap if possible.
-    const ctx = (error as { context?: { response?: Response } }).context
-    if (ctx?.response) {
-      try {
-        const body = await ctx.response.clone().json()
-        throw new Error(body?.error ? `${body.error}: ${JSON.stringify(body.detail)}` : error.message)
-      } catch {
-        throw error
-      }
-    }
-    throw error
-  }
-  // 204 → data is null. No-op.
-  void data
+  if (res.ok) return
+  let body: { error?: string; detail?: unknown } | null = null
+  try { body = await res.json() } catch { /* ignore */ }
+  throw new Error(body?.error ? `${body.error}: ${JSON.stringify(body.detail)}` : `HTTP ${res.status}`)
 }
 
 export function useGcalConnection(): UseGcalConnectionReturn {
