@@ -1,7 +1,9 @@
 import { useMemo, useEffect } from 'react'
-import { useAppStore } from '../store/appState'
+import { useAppStore, useUIStore } from '../store/appState'
 import { loadCalendarView } from '../hooks/useDataLoader'
+import { useGcalEvents, type GcalEvent } from '../hooks/useGcalEvents'
 import { TaskCard } from '../components/calendar/TaskCard'
+import { GcalEventCard } from '../components/calendar/GcalEventCard'
 import type { Database } from '../types/database.types'
 
 type ItemStatus = Database['public']['Enums']['item_status']
@@ -41,8 +43,46 @@ interface CalendarTask {
 export function CalendarView() {
   const { data, ui, patchUI } = useAppStore()
   const { calendarYear, calendarMonth, calendarSelectedDay } = ui
+  const setView = useUIStore((s) => s.patchUI)
 
   useEffect(() => { loadCalendarView() }, [])
+
+  // Visible-month window for GCal fetch (1-day buffer covers multi-day events
+  // that bleed across the boundary).
+  const monthWindow = useMemo(() => {
+    const start = new Date(calendarYear, calendarMonth, 1)
+    start.setDate(start.getDate() - 1)
+    const end = new Date(calendarYear, calendarMonth + 1, 1)
+    end.setDate(end.getDate() + 1)
+    return { start: start.toISOString(), end: end.toISOString() }
+  }, [calendarYear, calendarMonth])
+
+  const { events: gcalEvents, status: gcalStatus } = useGcalEvents({
+    start: monthWindow.start,
+    end: monthWindow.end,
+  })
+
+  // Per-day events map keyed by local YYYY-MM-DD of starts_at.
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, GcalEvent[]>()
+    for (const ev of gcalEvents) {
+      const d = new Date(ev.starts_at)
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const key = `${y}-${m}-${day}`
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(ev)
+    }
+    // all-day first, then timed by starts_at.
+    for (const list of map.values()) {
+      list.sort((a, b) => {
+        if (a.all_day !== b.all_day) return a.all_day ? -1 : 1
+        return a.starts_at.localeCompare(b.starts_at)
+      })
+    }
+    return map
+  }, [gcalEvents])
 
   // Today's date string
   const today = useMemo(() => {
@@ -139,6 +179,12 @@ export function CalendarView() {
     return tasksByDay.get(calendarSelectedDay) ?? []
   }, [calendarSelectedDay, tasksByDay])
 
+  // GCal events for selected day
+  const selectedDayEvents = useMemo(() => {
+    if (!calendarSelectedDay) return []
+    return eventsByDay.get(calendarSelectedDay) ?? []
+  }, [calendarSelectedDay, eventsByDay])
+
   return (
     <div className="flex flex-col h-full" style={{ color: 'var(--text)' }}>
       {/* Month navigation header */}
@@ -181,6 +227,21 @@ export function CalendarView() {
         </button>
       </div>
 
+      {/* GCal reconnect banner */}
+      {gcalStatus === 'reconnect_required' && (
+        <button
+          onClick={() => setView({ currentView: 'settings' })}
+          className="mx-3 mt-2 px-3 py-2 rounded-md text-xs text-left transition-colors hover:opacity-80"
+          style={{
+            background: 'var(--surface2)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-muted)',
+          }}
+        >
+          Google Calendar disconnected. Reconnect in Settings →
+        </button>
+      )}
+
       {/* Calendar grid */}
       <div className="px-2 pt-2 shrink-0">
         {/* Day-of-week header */}
@@ -213,8 +274,9 @@ export function CalendarView() {
             const isSelected = cell.dateStr === calendarSelectedDay
             const isPast = cell.dateStr < today
             const tasks = tasksByDay.get(cell.dateStr) ?? []
+            const dayEvents = eventsByDay.get(cell.dateStr) ?? []
             const visibleTasks = tasks.slice(0, 3)
-            const extraCount = tasks.length - 3
+            const extraCount = tasks.length - 3 + dayEvents.length
 
             return (
               <button
@@ -248,9 +310,9 @@ export function CalendarView() {
                   {cell.day}
                 </span>
 
-                {/* Task indicator dots */}
-                {visibleTasks.length > 0 && (
-                  <div className="flex flex-wrap gap-0.5 px-0.5">
+                {/* Task indicator dots + GCal event marker */}
+                {(visibleTasks.length > 0 || dayEvents.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-0.5 px-0.5">
                     {visibleTasks.map((t) => (
                       <span
                         key={t.id}
@@ -258,6 +320,13 @@ export function CalendarView() {
                         style={{ background: STATUS_COLORS[t.status ?? 'open'] ?? STATUS_COLORS.open }}
                       />
                     ))}
+                    {dayEvents.length > 0 && (
+                      <span
+                        className="w-1.5 h-1.5 rounded-sm shrink-0"
+                        style={{ background: 'var(--accent)' }}
+                        title={`${dayEvents.length} GCal event${dayEvents.length === 1 ? '' : 's'}`}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -286,12 +355,15 @@ export function CalendarView() {
             {formatSelectedDay(calendarSelectedDay)}
           </p>
 
-          {selectedDayTasks.length === 0 ? (
+          {selectedDayTasks.length === 0 && selectedDayEvents.length === 0 ? (
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              No tasks for this day.
+              Nothing scheduled for this day.
             </p>
           ) : (
             <div className="flex flex-col gap-2">
+              {selectedDayEvents.map((ev) => (
+                <GcalEventCard key={ev.gcal_event_id} event={ev} />
+              ))}
               {selectedDayTasks.map((t) => (
                 <TaskCard
                   key={t.id}
