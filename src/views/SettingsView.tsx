@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { CalendarDays } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { useGcalConnection } from '../hooks/useGcalConnection'
 
 export function SettingsView() {
   const { session, signOut } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const gcal = useGcalConnection()
 
   const handleSignOut = async (): Promise<void> => {
     setError(null)
@@ -39,6 +42,58 @@ export function SettingsView() {
           <div style={{ color: 'var(--text)' }} className="text-sm">
             {session?.user.email ?? '—'}
           </div>
+        </section>
+
+        <section className="flex flex-col gap-2">
+          <div style={{ color: 'var(--text-muted)' }} className="text-xs uppercase tracking-wide">
+            Google Calendar
+          </div>
+          {gcal.state === 'unknown' && (
+            <div style={{ color: 'var(--text-muted)' }} className="text-xs">Checking…</div>
+          )}
+          {(gcal.state === 'connected' || gcal.state === 'connecting' || gcal.state === 'disconnected' || gcal.state === 'error') && (
+            <div className="flex items-center gap-2">
+              <CalendarDays size={14} style={{ color: gcal.state === 'connected' ? 'var(--accent)' : 'var(--text-muted)' }} />
+              <span style={{ color: 'var(--text)' }} className="text-sm">
+                {gcal.state === 'connected' && 'Connected'}
+                {gcal.state === 'connecting' && 'Connecting…'}
+                {gcal.state === 'disconnected' && 'Not connected'}
+                {gcal.state === 'error' && 'Connection error'}
+              </span>
+            </div>
+          )}
+          {gcal.state === 'connected' ? (
+            <button
+              onClick={() => { void gcal.disconnect() }}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+              }}
+              className="px-3 py-2 rounded text-sm text-left"
+            >
+              Disconnect
+            </button>
+          ) : (
+            <button
+              onClick={() => { void gcal.connect() }}
+              disabled={gcal.state === 'connecting'}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                color: 'var(--text)',
+                opacity: gcal.state === 'connecting' ? 0.6 : 1,
+              }}
+              className="px-3 py-2 rounded text-sm text-left disabled:cursor-not-allowed"
+            >
+              {gcal.state === 'connecting' ? 'Connecting…' : 'Connect Google Calendar'}
+            </button>
+          )}
+          {gcal.error && (
+            <p style={{ color: 'var(--danger, #f87171)' }} className="text-xs">
+              {gcal.error}
+            </p>
+          )}
         </section>
 
         <section className="flex flex-col gap-2">
