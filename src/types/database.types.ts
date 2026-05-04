@@ -218,6 +218,48 @@ export type Database = {
           },
         ]
       }
+      cortex_events: {
+        Row: {
+          all_day: boolean
+          calendar_id: string
+          created_at: string
+          deleted_at: string | null
+          ends_at: string
+          gcal_event_id: string | null
+          id: string
+          starts_at: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          all_day?: boolean
+          calendar_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          ends_at: string
+          gcal_event_id?: string | null
+          id?: string
+          starts_at: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          all_day?: boolean
+          calendar_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          ends_at?: string
+          gcal_event_id?: string | null
+          id?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       inbox: {
         Row: {
           archived: boolean
@@ -229,7 +271,7 @@ export type Database = {
           pinned: boolean
           read: boolean
           source: Database["public"]["Enums"]["inbox_source"]
-          title: string
+          title: string | null
           updated_at: string
           user_id: string
         }
@@ -243,7 +285,7 @@ export type Database = {
           pinned?: boolean
           read?: boolean
           source?: Database["public"]["Enums"]["inbox_source"]
-          title: string
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -257,7 +299,7 @@ export type Database = {
           pinned?: boolean
           read?: boolean
           source?: Database["public"]["Enums"]["inbox_source"]
-          title?: string
+          title?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -316,66 +358,6 @@ export type Database = {
           },
           {
             foreignKeyName: "node_phase_audit_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "v_todays_tasks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      node_session: {
-        Row: {
-          ended_at: string | null
-          id: string
-          last_checkpoint_summary: string | null
-          node_id: string
-          started_at: string
-        }
-        Insert: {
-          ended_at?: string | null
-          id?: string
-          last_checkpoint_summary?: string | null
-          node_id: string
-          started_at?: string
-        }
-        Update: {
-          ended_at?: string | null
-          id?: string
-          last_checkpoint_summary?: string | null
-          node_id?: string
-          started_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "action_node"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "v_active_projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "v_active_tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "v_overdue_tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "node_session_node_id_fkey"
             columns: ["node_id"]
             isOneToOne: false
             referencedRelation: "v_todays_tasks"
@@ -487,39 +469,6 @@ export type Database = {
           description?: string | null
           id?: string
           relation_type?: Database["public"]["Enums"]["relation_type"]
-          user_id?: string
-        }
-        Relationships: []
-      }
-      reminders: {
-        Row: {
-          body: string | null
-          created_at: string
-          entity_id: string
-          entity_type: Database["public"]["Enums"]["item_type"]
-          fired: boolean
-          id: string
-          remind_at: string
-          user_id: string
-        }
-        Insert: {
-          body?: string | null
-          created_at?: string
-          entity_id: string
-          entity_type: Database["public"]["Enums"]["item_type"]
-          fired?: boolean
-          id?: string
-          remind_at: string
-          user_id?: string
-        }
-        Update: {
-          body?: string | null
-          created_at?: string
-          entity_id?: string
-          entity_type?: Database["public"]["Enums"]["item_type"]
-          fired?: boolean
-          id?: string
-          remind_at?: string
           user_id?: string
         }
         Relationships: []
@@ -794,55 +743,6 @@ export type Database = {
           },
         ]
       }
-      v_resumable_sessions: {
-        Row: {
-          last_checkpoint_summary: string | null
-          node_id: string | null
-          node_name: string | null
-          node_status: Database["public"]["Enums"]["item_status"] | null
-          node_type: Database["public"]["Enums"]["task_type"] | null
-          open_for: string | null
-          session_id: string | null
-          started_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "action_node"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "v_active_projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "v_active_tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "v_overdue_tasks"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "node_session_node_id_fkey"
-            columns: ["node_id"]
-            isOneToOne: false
-            referencedRelation: "v_todays_tasks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       v_space_tree: {
         Row: {
           depth: number | null
@@ -920,18 +820,6 @@ export type Database = {
           },
         ]
       }
-      v_upcoming_reminders: {
-        Row: {
-          body: string | null
-          created_at: string | null
-          entity_id: string | null
-          entity_name: string | null
-          entity_type: Database["public"]["Enums"]["item_type"] | null
-          id: string | null
-          remind_at: string | null
-        }
-        Relationships: []
-      }
       v_waiting: {
         Row: {
           body: string | null
@@ -983,10 +871,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      fn_checkpoint: {
-        Args: { p_node_id: string; p_summary: string }
-        Returns: undefined
-      }
       fn_complete_node: {
         Args: { p_id: string }
         Returns: {
@@ -1032,7 +916,34 @@ export type Database = {
           ts: string
         }[]
       }
-      fn_end_session: { Args: { p_node_id: string }; Returns: undefined }
+      fn_event_delete: { Args: { p_id: string }; Returns: undefined }
+      fn_event_push: { Args: { args: Json }; Returns: string }
+      fn_gcal_fetch: {
+        Args: { p_calendar_id?: string; p_end: string; p_start: string }
+        Returns: {
+          all_day: boolean
+          calendar_id: string
+          ends_at: string
+          gcal_event_id: string
+          starts_at: string
+          title: string
+        }[]
+      }
+      fn_gcal_fetch_self: {
+        Args: { p_calendar_id?: string; p_end: string; p_start: string }
+        Returns: {
+          all_day: boolean
+          calendar_id: string
+          ends_at: string
+          gcal_event_id: string
+          starts_at: string
+          title: string
+        }[]
+      }
+      fn_gcal_token_clear: { Args: never; Returns: undefined }
+      fn_gcal_token_clear_self: { Args: never; Returns: undefined }
+      fn_gcal_token_get: { Args: never; Returns: Json }
+      fn_gcal_token_put: { Args: { p_token: Json }; Returns: undefined }
       fn_node_tree: { Args: { root_id: string }; Returns: string }
       fn_realtime_publication_tables: {
         Args: never
@@ -1058,6 +969,10 @@ export type Database = {
           resolved_type: Database["public"]["Enums"]["item_type"]
         }
         Returns: undefined
+      }
+      fn_scaffold_plan_tasks: {
+        Args: { p_parent_id: string; p_tasks: Json }
+        Returns: Json
       }
       fn_semantic_search: {
         Args: {
@@ -1115,7 +1030,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      fn_start_session: { Args: { p_node_id: string }; Returns: string }
+      fn_supabase_secret_key: { Args: never; Returns: string }
       fn_task_tree: {
         Args: { root_id: string }
         Returns: {
@@ -1150,7 +1065,7 @@ export type Database = {
       inbox_source: "chat" | "voice" | "text" | "email" | "shortcut"
       item_bucket: "needs_doing" | "someday" | "maybe"
       item_status: "open" | "in_progress" | "waiting" | "done" | "cancelled"
-      item_type: "space" | "task" | "note" | "inbox" | "person"
+      item_type: "space" | "task" | "note" | "inbox" | "person" | "event"
       node_phase: "discovery" | "plan" | "executing" | "retro"
       priority_level: "high" | "medium" | "low"
       relation_type: "relates_to" | "blocks" | "duplicate_of" | "branched_from"
@@ -1303,7 +1218,7 @@ export const Constants = {
       inbox_source: ["chat", "voice", "text", "email", "shortcut"],
       item_bucket: ["needs_doing", "someday", "maybe"],
       item_status: ["open", "in_progress", "waiting", "done", "cancelled"],
-      item_type: ["space", "task", "note", "inbox", "person"],
+      item_type: ["space", "task", "note", "inbox", "person", "event"],
       node_phase: ["discovery", "plan", "executing", "retro"],
       priority_level: ["high", "medium", "low"],
       relation_type: ["relates_to", "blocks", "duplicate_of", "branched_from"],
@@ -1312,3 +1227,5 @@ export const Constants = {
     },
   },
 } as const
+A new version of Supabase CLI is available: v2.95.4 (currently installed v2.90.0)
+We recommend updating regularly for new features and bug fixes: https://supabase.com/docs/guides/cli/getting-started#updating-the-supabase-cli

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
 
 export interface GcalEvent {
   gcal_event_id: string
@@ -63,17 +62,13 @@ export function useGcalEvents({
   const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    if (!enabled || !start || !end) {
-      setStatus('loading')
-      setEvents([])
-      return
-    }
+    if (!enabled || !start || !end) return
 
     let cancelled = false
-    setStatus('loading')
-    setError(null)
 
     ;(async () => {
+      setStatus('loading')
+      setError(null)
       try {
         const res = await fetchEvents(start, end, calendarId)
         if (cancelled) return
