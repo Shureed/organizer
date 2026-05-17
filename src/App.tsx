@@ -12,6 +12,7 @@ import {
 import { useAuth } from './hooks/useAuth'
 import { useDataLoader, loadShellSeed } from './hooks/useDataLoader'
 import { useRealtime } from './hooks/useRealtime'
+import { useGcalCallback } from './hooks/useGcalCallback'
 import { initialSync, maybeRunSchemaRepair, syncAll } from './sync/pull'
 import { query } from './sync/client'
 import { resetInFlight } from './sync/outbox'
@@ -197,6 +198,11 @@ function MainApp({ session }: MainAppProps) {
 
   // Mount realtime subscriptions for this authenticated session
   useRealtime(session)
+
+  // Drain a Google OAuth `?code=` bounce-back regardless of which view is
+  // initially rendered — previously this only ran when SettingsView happened
+  // to be mounted, so non-Settings landings silently dropped the exchange.
+  useGcalCallback()
 
   // Preserve refreshTasks-on-close behaviour (was Today-only; now applies to all views)
   const prevOpenTaskIdRef = useRef<string | null>(null)

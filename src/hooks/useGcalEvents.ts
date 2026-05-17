@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useUIStore } from '../store/appState'
 
 export interface GcalEvent {
   gcal_event_id: string
@@ -60,6 +61,10 @@ export function useGcalEvents({
   const [status, setStatus] = useState<EventsStatus>('loading')
   const [error, setError] = useState<string | null>(null)
   const [tick, setTick] = useState(0)
+  // Refetch whenever the connection version bumps (fresh OAuth exchange or
+  // disconnect). Without this, a successful reconnect leaves a cached
+  // `reconnect_required` status stuck until the next dep change.
+  const connectionVersion = useUIStore((s) => s.ui.gcalConnectionVersion)
 
   useEffect(() => {
     if (!enabled || !start || !end) return
@@ -99,7 +104,7 @@ export function useGcalEvents({
     return () => {
       cancelled = true
     }
-  }, [start, end, calendarId, enabled, tick])
+  }, [start, end, calendarId, enabled, tick, connectionVersion])
 
   return {
     events,

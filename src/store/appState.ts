@@ -42,6 +42,10 @@ export interface AppUI {
   fuseIndex: Fuse<SearchItem> | null
   openTaskId: string | null
   openInboxId: string | null
+  // Bumped on successful GCal OAuth exchange + on disconnect. Subscribers
+  // (useGcalEvents) include this in effect deps to refetch when connection
+  // state changes mid-session.
+  gcalConnectionVersion: number
 }
 
 // ── Data store ─────────────────────────────────────────────────────────────────
@@ -90,6 +94,7 @@ const initialUI: AppUI = {
   fuseIndex: null,
   openTaskId: null,
   openInboxId: null,
+  gcalConnectionVersion: 0,
 }
 
 export const useUIStore = create<UIStore>((set) => ({
