@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { useUIStore } from '../store/appState'
 
 // PKCE storage key — short-lived (sessionStorage), cleared on success/failure.
 const VERIFIER_KEY = 'gcal_oauth_verifier'
@@ -79,25 +80,12 @@ async function probeConnected(): Promise<boolean> {
   throw new Error(body?.error ? `${body.error}` : `HTTP ${res.status}`)
 }
 
-async function exchangeCode(code: string, codeVerifier: string): Promise<void> {
-  const session = (await supabase.auth.getSession()).data.session
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`
-  const res = await fetch(fnUrl('gcal-oauth-callback'), {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ code, code_verifier: codeVerifier, redirect_uri: redirectUri() }),
-  })
-  if (res.ok) return
-  let body: { error?: string; detail?: unknown } | null = null
-  try { body = await res.json() } catch { /* ignore */ }
-  throw new Error(body?.error ? `${body.error}: ${JSON.stringify(body.detail)}` : `HTTP ${res.status}`)
-}
-
 export function useGcalConnection(): UseGcalConnectionReturn {
   const [state, setState] = useState<ConnectionState>('unknown')
   const [error, setError] = useState<string | null>(null)
-  const callbackHandledRef = useRef(false)
+  // Subscribers re-probe when this bumps — written by useGcalCallback on exchange
+  // completion and by disconnect() below.
+  const connectionVersion = useUIStore((s) => s.ui.gcalConnectionVersion)
 
   const refreshState = useCallback(async () => {
     try {
@@ -110,61 +98,10 @@ export function useGcalConnection(): UseGcalConnectionReturn {
     }
   }, [])
 
-  // On mount: handle OAuth callback if present, else probe.
+  // Probe on mount and whenever the connection version bumps.
   useEffect(() => {
-    if (callbackHandledRef.current) return
-    callbackHandledRef.current = true
-
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    const stateParam = params.get('state')
-    const errParam = params.get('error')
-
-    const cleanUrl = () => {
-      // Strip the OAuth params from the URL without reloading.
-      const url = new URL(window.location.href)
-      url.searchParams.delete('code')
-      url.searchParams.delete('state')
-      url.searchParams.delete('scope')
-      url.searchParams.delete('error')
-      window.history.replaceState({}, '', url.toString())
-    }
-
-    if (errParam) {
-      setState('error')
-      setError(`OAuth: ${errParam}`)
-      cleanUrl()
-      sessionStorage.removeItem(VERIFIER_KEY)
-      sessionStorage.removeItem(STATE_KEY)
-      return
-    }
-
-    const expectedState = sessionStorage.getItem(STATE_KEY)
-    if (code && stateParam === STATE_VALUE && stateParam === expectedState) {
-      const verifier = sessionStorage.getItem(VERIFIER_KEY)
-      sessionStorage.removeItem(VERIFIER_KEY)
-      sessionStorage.removeItem(STATE_KEY)
-      cleanUrl()
-      if (!verifier) {
-        setState('error')
-        setError('OAuth: missing PKCE verifier in session')
-        return
-      }
-      ;(async () => {
-        try {
-          setState('connecting')
-          await exchangeCode(code, verifier)
-          await refreshState()
-        } catch (err) {
-          setState('error')
-          setError(err instanceof Error ? err.message : String(err))
-        }
-      })()
-      return
-    }
-
     void refreshState()
-  }, [refreshState])
+  }, [refreshState, connectionVersion])
 
   const connect = useCallback(async () => {
     if (!CLIENT_ID) {
@@ -204,6 +141,10 @@ export function useGcalConnection(): UseGcalConnectionReturn {
       const { error: rpcErr } = await supabase.rpc('fn_gcal_token_clear_self')
       if (rpcErr) throw rpcErr
       setState('disconnected')
+      // Notify other subscribers (useGcalEvents) so they reflect the disconnect
+      // without waiting for a remount.
+      const cur = useUIStore.getState().ui.gcalConnectionVersion
+      useUIStore.getState().patchUI({ gcalConnectionVersion: cur + 1 })
     } catch (err) {
       setState('error')
       setError(err instanceof Error ? err.message : String(err))
