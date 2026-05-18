@@ -2,12 +2,16 @@ import { useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useGcalConnection } from '../hooks/useGcalConnection'
+import { useUIStore } from '../store/appState'
 
 export function SettingsView() {
   const { session, signOut } = useAuth()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const gcal = useGcalConnection()
+  // OAuth `?code=` exchange runs in the shell-level useGcalCallback hook, which
+  // has no component-local error state — it parks failures here.
+  const gcalCallbackError = useUIStore((s) => s.ui.gcalCallbackError)
 
   const handleSignOut = async (): Promise<void> => {
     setError(null)
@@ -89,9 +93,9 @@ export function SettingsView() {
               {gcal.state === 'connecting' ? 'Connecting…' : 'Connect Google Calendar'}
             </button>
           )}
-          {gcal.error && (
+          {(gcal.error || gcalCallbackError) && (
             <p style={{ color: 'var(--danger, #f87171)' }} className="text-xs">
-              {gcal.error}
+              {gcal.error ?? gcalCallbackError}
             </p>
           )}
         </section>

@@ -49,6 +49,11 @@ function bumpConnectionVersion(): void {
   useUIStore.getState().patchUI({ gcalConnectionVersion: cur + 1 })
 }
 
+// Surface a callback error for SettingsView; pass null to clear it.
+function setCallbackError(message: string | null): void {
+  useUIStore.getState().patchUI({ gcalCallbackError: message })
+}
+
 // Imperative core, exported for tests. Returns a Promise resolved once any
 // async exchange has completed (or immediately for pass-through paths).
 export async function processOAuthCallback(): Promise<void> {
@@ -64,6 +69,7 @@ export async function processOAuthCallback(): Promise<void> {
     cleanUrl()
     sessionStorage.removeItem(VERIFIER_KEY)
     sessionStorage.removeItem(STATE_KEY)
+    setCallbackError(`OAuth: ${errParam}`)
     bumpConnectionVersion()
     return
   }
@@ -78,12 +84,16 @@ export async function processOAuthCallback(): Promise<void> {
   sessionStorage.removeItem(STATE_KEY)
   cleanUrl()
   if (!verifier) {
+    setCallbackError('OAuth: missing PKCE verifier in session')
     bumpConnectionVersion()
     return
   }
 
   try {
     await exchangeCode(code, verifier)
+    setCallbackError(null)
+  } catch (err) {
+    setCallbackError(`OAuth: ${err instanceof Error ? err.message : String(err)}`)
   } finally {
     // Bump on both success and failure so subscribers re-probe and reflect
     // the actual (possibly still-disconnected) state.

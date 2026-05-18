@@ -46,6 +46,10 @@ export interface AppUI {
   // (useGcalEvents) include this in effect deps to refetch when connection
   // state changes mid-session.
   gcalConnectionVersion: number
+  // Set by useGcalCallback when the OAuth `?code=` exchange fails (or Google
+  // returns `?error=`); cleared on a successful exchange. SettingsView renders
+  // it — the shell-level callback has no component-local error state of its own.
+  gcalCallbackError: string | null
 }
 
 // ── Data store ─────────────────────────────────────────────────────────────────
@@ -95,6 +99,7 @@ const initialUI: AppUI = {
   openTaskId: null,
   openInboxId: null,
   gcalConnectionVersion: 0,
+  gcalCallbackError: null,
 }
 
 export const useUIStore = create<UIStore>((set) => ({
