@@ -37,8 +37,10 @@ describe('OAuth callback mount location', () => {
     expect(body).not.toMatch(/currentView\s*===\s*['"]settings['"][\s\S]*useGcalCallback/)
   })
 
-  it('SettingsView does NOT mount useGcalCallback (lives on the shell now)', () => {
+  it('SettingsView does NOT import or call useGcalCallback (lives on the shell now)', () => {
     const settings = readFileSync(resolve(HERE, 'views/SettingsView.tsx'), 'utf-8')
-    expect(settings).not.toContain('useGcalCallback')
+    // A bare mention in a comment is fine; an import or a call is the regression.
+    expect(settings).not.toMatch(/^import[^\n]*useGcalCallback[^\n]*from/m)
+    expect(settings).not.toMatch(/useGcalCallback\s*\(/)
   })
 })

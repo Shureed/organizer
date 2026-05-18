@@ -39,6 +39,7 @@ function resetUIStore() {
       openTaskId: null,
       openInboxId: null,
       gcalConnectionVersion: 0,
+      gcalCallbackError: null,
     },
   })
 }
@@ -83,12 +84,27 @@ describe('processOAuthCallback', () => {
     expect(body.redirect_uri).toMatch(new RegExp(`^${ORIGIN}/`))
 
     expect(useUIStore.getState().ui.gcalConnectionVersion).toBe(1)
+    expect(useUIStore.getState().ui.gcalCallbackError).toBeNull()
     expect(sessionStorage.getItem('gcal_oauth_verifier')).toBeNull()
     expect(sessionStorage.getItem('gcal_oauth_state')).toBeNull()
     expect(window.location.search).toBe('')
   })
 
-  it('on ?error= cleans URL + bumps version but does not call fetch', async () => {
+  it('parks gcalCallbackError when the exchange fails', async () => {
+    sessionStorage.setItem('gcal_oauth_state', 'gcal_oauth')
+    sessionStorage.setItem('gcal_oauth_verifier', 'verifier-abc')
+    setLocation('?code=fakecode&state=gcal_oauth')
+
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ error: 'token_exchange_failed' }), { status: 400 }),
+    )
+    await processOAuthCallback()
+
+    expect(useUIStore.getState().ui.gcalCallbackError).toMatch(/^OAuth: token_exchange_failed/)
+    expect(useUIStore.getState().ui.gcalConnectionVersion).toBe(1)
+  })
+
+  it('on ?error= cleans URL + bumps version, parks error, does not call fetch', async () => {
     sessionStorage.setItem('gcal_oauth_state', 'gcal_oauth')
     sessionStorage.setItem('gcal_oauth_verifier', 'verifier-abc')
     setLocation('?error=access_denied')
@@ -98,6 +114,7 @@ describe('processOAuthCallback', () => {
 
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(useUIStore.getState().ui.gcalConnectionVersion).toBe(1)
+    expect(useUIStore.getState().ui.gcalCallbackError).toBe('OAuth: access_denied')
     expect(sessionStorage.getItem('gcal_oauth_verifier')).toBeNull()
     expect(sessionStorage.getItem('gcal_oauth_state')).toBeNull()
     expect(window.location.search).toBe('')

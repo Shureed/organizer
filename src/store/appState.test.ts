@@ -42,6 +42,7 @@ const resetUIStore = () =>
       openTaskId: null,
       openInboxId: null,
       gcalConnectionVersion: 0,
+      gcalCallbackError: null,
     },
   })
 
