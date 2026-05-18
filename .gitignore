@@ -28,3 +28,6 @@ e2e/storageState.json
 e2e/test-results/
 e2e/playwright-report/
 e2e/.cache/
+
+# Local agent scratch (Claude Code worktrees, settings.local.json) — never committed
+.claude/
